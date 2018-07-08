@@ -7,8 +7,8 @@ This script analyze multi-plexed amplicon sequencing data.
 
 ### Prerequisites
 
-FLASh: https://ccb.jhu.edu/software/FLASH/
-TRIMMOMATIC: http://www.usadellab.org/cms/?page=trimmomatic
+* FLASh: https://ccb.jhu.edu/software/FLASH/
+* TRIMMOMATIC: http://www.usadellab.org/cms/?page=trimmomatic
 
 ### Installing
 
