@@ -50,8 +50,8 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * -p	Ploidy, default 2
 
 ### to_lep_map.pl script
-As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a VCF file. There is also a lookup table to show the corresponding haplotype allele for "A" "C" "G" and "T". 
-  * Usage:  to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample =p paternalSample -n familyName
+As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a VCF file. There is also a lookup table to show the corresponding haplotype allele for "A" "C" "G" and "T".  
+  * Usage:  to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample =p paternalSample -n familyName  
   * -b, -m and -p are optional. They should be integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1.
 
 ## Authors
