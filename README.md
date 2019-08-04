@@ -1,22 +1,29 @@
 # Analyze Amplicon
 
-This script analyze multi-plexed amplicon sequencing data. 
+The python script (amplicon.py)  analyzes multi-plexed amplicon sequencing data, optimized for high throughput IDT rhAmpSeq data. Another script (to_lep_map.pl) converta the output to a VCF file that can be loaded into LepMap3 software for genetic linkage map construction. The alleles in the VCF file (A, C, G, T) are symbols represent up to 4 haplotytpe alleles. The sequences of the haplotype allleles represented by "ACGT" are provided in the output.
 
 ## Getting Started
 
 
 ### Prerequisites
-
-* FLASh: https://ccb.jhu.edu/software/FLASH/
-* TRIMMOMATIC: http://www.usadellab.org/cms/?page=trimmomatic
+1. Python 3 (tested on python 3.6) and PERL (tested on 5.22)
+2. Python modules: 
+* BioPython https://biopython.org/
+3. Other software. The following commands should in the PATH
+* bbmerge.sh: https://sourceforge.net/projects/bbmap/
+* cutadapt: https://cutadapt.readthedocs.io/en/stable/
+* muscle (optional): https://www.drive5.com/muscle/
 
 ### Installing
 
-Install all pre-requisites. Download the PERL script and modify the PATH to pre-requisites in the script.
+Install all pre-requisites. Download the amplicon.py and to_lep_map.pl scripts.
+
+### Usage
 
 ## Authors
 
-* **Qi Sun** - *Initial work*
+* **Qi Sun**
+* **Cheng Zou**
 
 ## License
 
