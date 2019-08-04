@@ -62,8 +62,8 @@ def main():
         sys.exit()
 
     if (not checkApp("muscle")):
-        sys.exit()
-
+        if (args.PCRErrorCorr ==1):
+            sys.exit()
 
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
 
