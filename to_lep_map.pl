@@ -5,7 +5,7 @@ use Getopt::Std;
 my %opts;
 
 ##v2
-unless (getopts("g:b:m:p:f:n:h", \%opts))
+unless (getopts("g:b:m:p:f:n:xh", \%opts))
 {
         printhelp();
         print "Error: some options are not set properly!\n";
@@ -16,6 +16,11 @@ if (defined $opts{"h"})
 {
 	 printhelp();
 	 exit;
+}
+my $forcetop4 = 0;
+if (defined $opts{"x"}) 
+{
+	 $forcetop4 = 1;
 }
 
 my $familyName = "F";
@@ -78,13 +83,20 @@ if ($opts{"b"})
 	}
 }
 
+##if both mom and dad available use alleles of mom and dad
+my $usealleles = "top4";
+if (($hasmom>=0) && ($hasdad>=0) && ($forcetop4==0)) 
+{
+	$usealleles = "parents";
+}
 
-open OUT, ">$familyName.lepmap3.pedigree.txt";
+
+#open OUT, ">$familyName.lepmap3.pedigree.txt";
 open OUT2, ">$familyName.vcf";
 open OUT3, ">$familyName.vcf.allelelookup.txt";
-open OUT4, ">$familyName.lepmap2.txt";
-open OUT5, ">$familyName.lepmap2.markers.txt";
-open OUT6, ">$familyName.rqtl.txt";
+#open OUT4, ">$familyName.lepmap2.txt";
+#open OUT5, ">$familyName.lepmap2.markers.txt";
+#open OUT6, ">$familyName.rqtl.txt";
 
 
 	print OUT2 "##fileformat=VCFv4.0\n";
@@ -141,7 +153,7 @@ if ($hasmom>=0)
 {
 	$usedSampleCount++;
 	$momSample = $samples[$hasmom];
-	unless ($dadSample) 
+	unless ($momSample) 
 	{
 		my $c = @samples + 0;
 		print "Error: Mother sample $hasmom does not exist! Total sample count is $c \n"; 
@@ -178,42 +190,42 @@ LOOP3:for (my $i=0; $i<=$#samples; $i++)
 }
 
 
-## first line
-print OUT "Contig\tPos";
-for (my $i=0; $i< $usedSampleCount; $i++) 
-{
-	print OUT "\t".$familyName;
-}
-
-
-#second line
-print OUT "Contig\tPos\t";
-print OUT (join "\t", @usedSamples);
-print OUT "\n";
-
-#third line
-print OUT "Contig\tPos\t";
-print OUT (join "\t", @usedSamplesDad);
-print OUT "\n";
-
-#fourth line
-print OUT "Contig\tPos\t";
-print OUT (join "\t", @usedSamplesMom);
-print OUT "\n";
-
-#fifth line
-print OUT "Contig\tPos\t";
-print OUT (join "\t", @usedSamplesSex);
-print OUT "\n";
-
-
-## six line
-print OUT "Contig\tPos";
-for (my $i=0; $i< $usedSampleCount; $i++) 
-{
-	print OUT "\t0";
-}
-print OUT "\n";
+### first line
+#print OUT "Contig\tPos";
+#for (my $i=0; $i< $usedSampleCount; $i++) 
+#{
+#	print OUT "\t".$familyName;
+#}
+#
+#
+##second line
+#print OUT "Contig\tPos\t";
+#print OUT (join "\t", @usedSamples);
+#print OUT "\n";
+#
+##third line
+#print OUT "Contig\tPos\t";
+#print OUT (join "\t", @usedSamplesDad);
+#print OUT "\n";
+#
+##fourth line
+#print OUT "Contig\tPos\t";
+#print OUT (join "\t", @usedSamplesMom);
+#print OUT "\n";
+#
+##fifth line
+#print OUT "Contig\tPos\t";
+#print OUT (join "\t", @usedSamplesSex);
+#print OUT "\n";
+#
+#
+### six line
+#print OUT "Contig\tPos";
+#for (my $i=0; $i< $usedSampleCount; $i++) 
+#{
+#	print OUT "\t0";
+#}
+#print OUT "\n";
 
 
 
@@ -268,28 +280,88 @@ LOOP1:while (<IN>)
 	my @aindex = (0,1,2,3);
 	my @aNT = qw(A C G T);
 	my %aindexToNt = (0=>"A", 1=>"C", 2=>"G", 3=>"T");
-	LOOP2:foreach  (@alleles) 
+
+	if ($usealleles eq "top4") 
 	{
-		last LOOP2 if ($alleleCount>=4);
-		if(/(\d+)\(([0-9.]+)\)/)
+		LOOP2:foreach  (@alleles) 
 		{
-			my ($a, $f) = ($1, $2);
-			if ($f>$maf) 
+			last LOOP2 if ($alleleCount>=4);
+			if(/(\d+)\(([0-9.]+)\)/)
 			{
-				my $tindex = shift @aindex; 
-				my $t = shift @aNT;
-				$usedHapToVCFAlleleIndex{$a} = $tindex;
-				push @usedAllelesSorted, $a;
-				push @usedAllelesSortedNT, $t;
-				$alleleCount ++;
-				print OUT3 $locus, "\t$t\t$tindex\t$a\n", 
+				my ($a, $f) = ($1, $2);
+				print "fff$f $maf\n";
+				if ($f>$maf) 
+				{
+					my $tindex = shift @aindex; 
+					my $t = shift @aNT;
+					$usedHapToVCFAlleleIndex{$a} = $tindex;
+					push @usedAllelesSorted, $a;
+					push @usedAllelesSortedNT, $t;
+					$alleleCount ++;
+					print OUT3 $locus, "\t$t\t$tindex\t$a\n", 
+				}
+
+			}		
+		}
+	}
+	elsif ($usealleles eq "parents")
+	{
+		my @parents = (keys %moms, keys %dads);
+		my %checkParentAlleles = ();
+
+		LOOPP:foreach my $i (@parents) 
+		{
+			my ($g, $d)  = split ":",  $data[$i];
+			next LOOPP unless ($g=~/\d/);
+			my @gts = split /\//, $g;
+			my @ds = split ",", $d;
+
+			if ($gts[0] == $gts[1]) 
+			{
+				$checkParentAlleles{$gts[0]} += $ds[0];
+			}
+			else
+			{
+				$checkParentAlleles{$gts[0]} += $ds[0];
+				$checkParentAlleles{$gts[1]} += $ds[1];
 			}
 
-		}		
+		}
+		#$,="\t";
+		#print %checkParentAlleles, "\n";
+		
+		@alleles = reverse sort {$checkParentAlleles{$a}<=>$checkParentAlleles{$b}} (keys %checkParentAlleles);
+
+		LOOPP2:foreach my $a  (@alleles) 
+		{
+			last LOOPP2 if ($alleleCount>=4);
+			my $tindex = shift @aindex; 
+			my $t = shift @aNT;
+			$usedHapToVCFAlleleIndex{$a} = $tindex;
+			push @usedAllelesSorted, $a;
+			push @usedAllelesSortedNT, $t;
+			$alleleCount ++;
+			print OUT3 $locus, "\t$t\t$tindex\t$a\n", 
+	
+		}
 	}
-	next LOOP1 if ($alleleCount<2);
-	my $ref = $usedAllelesSortedNT[0];
-	my $alt = $usedAllelesSortedNT[1];
+
+	my ($ref, $alt);
+	if ($alleleCount==1)
+	{
+		$ref = $usedAllelesSortedNT[0];
+	    $alt = '.';
+	}
+	elsif ($alleleCount >1)
+	{
+		$ref = $usedAllelesSortedNT[0];
+	    $alt = $usedAllelesSortedNT[1];
+	}
+	else
+	{
+		next LOOP1;
+	}
+
 	if (@usedAllelesSorted >2) 
 	{
 		$alt = join ",", @usedAllelesSortedNT[1..$#usedAllelesSortedNT];
@@ -370,62 +442,63 @@ LOOP1:while (<IN>)
 
 
 }
-close OUT;
+#close OUT;
 close OUT2;
 close OUT3;
 
 
-foreach  ( @lepmap2Markers) 
-{
-	print OUT6 "\t$_";
-}
-print OUT6 "\n";
+#foreach  ( @lepmap2Markers) 
+#{
+#	print OUT6 "\t$_";
+#}
+#print OUT6 "\n";
+#
+#foreach  ( @lepmap2Markers) 
+#{
+#	print OUT6 "\t$markernameToContig{$_}";
+#}
+#print OUT6 "\n";
+#
+#foreach  ( @lepmap2Markers) 
+#{
+#	print OUT6 "\t$markernameToPos{$_}";
+#}
+#print OUT6 "\n";
+#
+#
+#for (my $i=0; $i< $usedSampleCount; $i++) 
+#{
+#	print OUT4 (join "\t", @{$lepmap2[$i]});
+#	print OUT4 "\n";
+#
+#	print OUT6 (join "\t", @{$rqtl[$i]});
+#	print OUT6 "\n";
+#}
+#
+#close OUT4;
 
-foreach  ( @lepmap2Markers) 
-{
-	print OUT6 "\t$markernameToContig{$_}";
-}
-print OUT6 "\n";
-
-foreach  ( @lepmap2Markers) 
-{
-	print OUT6 "\t$markernameToPos{$_}";
-}
-print OUT6 "\n";
 
 
-for (my $i=0; $i< $usedSampleCount; $i++) 
-{
-	print OUT4 (join "\t", @{$lepmap2[$i]});
-	print OUT4 "\n";
-
-	print OUT6 (join "\t", @{$rqtl[$i]});
-	print OUT6 "\n";
-}
-
-close OUT4;
-
-
-
-my $i=0;
-foreach  (@lepmap2Markers) 
-{
-	print OUT5  $i, "\t", $_, "\n";
-	$i ++;
-}
-
-close OUT5;
+#my $i=0;
+#foreach  (@lepmap2Markers) 
+#{
+#	print OUT5  $i, "\t", $_, "\n";
+#	$i ++;
+#}
+#
+#close OUT5;
 
 
 sub printhelp
 {
-	print "Usage: analyze_amplicon.pl -s mySampleFile -k myKeyFile\n";
+	print "Usage: to_lep_map.pl -g inputGTFile -f maf -b <blank samples> -m  <maternal samples> -p <paternal samples> -n familyName\n";
 	print "Options:\n";
-	print "-g: Input genotype file\n";
+	print "-g: Input genotype file, the hap_genotype file from amplicon.py\n";
 	print "-f: mininum allele frequency\n";
 	print "-b: define blank samples index, if there are several separated by comma. First sample index is 1.\n";
-	print "-m: mather parent index, if there are several separated by comma. First sample index is 1.\n";
+	print "-m: maternal parent index, if there are several separated by comma. First sample index is 1.\n";
 	print "-p: paternal parent index, if there are several separated by comma. First sample is 1.\n";
-	print "-n: family name";
-	print "-h: help menu.";
+	print "-n: family name\n";
+	print "-x: force using top 4 alleles even if parents are present\n";
+	print "-h: help menu.\n";
 }

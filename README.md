@@ -29,6 +29,12 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
  * -j 10:  process 10 samples simultaneously. This should not exceed the total number of CPU cores on your computer, and should not exceed 20 even if you have more cores du to IO limitation.
  * =a 0.15: minimum minor allele frequency
 
+### Output files
+  * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
+  * hap_genotype_matrix: A file transposed from hap_genotype file, and without read count per allele information. 
+  * HaplotypeAllele.fasta: A fasta file with haplotype sequence per allele.
+
+
 ### Other parameters
   * -h	show this help message and exit
   * -i	Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes
@@ -43,6 +49,10 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
   * -p	Ploidy, default 2
 
+### to_lep_map.pl script
+As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a VCF file. There is also a lookup table to show the corresponding haplotype allele for "A" "C" "G" and "T". 
+  * Usage:  to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample =p paternalSample -n familyName
+  * -b, -m and -p are optional. They should be integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1.
 
 ## Authors
 * **Qi Sun**
