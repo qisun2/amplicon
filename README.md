@@ -14,7 +14,7 @@ The following commands should be installed and in the PATH:
 * cutadapt: https://cutadapt.readthedocs.io/en/stable/
 * muscle (optional): https://www.drive5.com/muscle/
 
-### Installing
+### Installation
 Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any directory
 
 ### Usage
@@ -30,39 +30,18 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
  * =a 0.15: minimum minor allele frequency
 
 ### Other parameters
-  -h, --help            show this help message and exit
-  -i SKIP, --skip SKIP  Skip steps. e.g. "-i 12" to skip steps 1 and 2. the
-                        steps are: 1. split reads by primers; 2. identify
-                        haplotypes across population, and optionally run PCR
-                        error correction if set "-e 1"; 3 call genotypes
-  -j JOB, --job JOB     Number of simultaneous jobs. Default:8
-  -t THREAD, --thread THREAD
-                        Number of threads per job. Default:4
-  -c MINSAMPLEPERHAPLOTYPE, --minSamplePerHaplotype MINSAMPLEPERHAPLOTYPE
-                        Minimum number of samples per haplotypes. Default:10
-  -n MAXHAPLOTYPEPERSAMPLE, --maxHaplotypePerSample MAXHAPLOTYPEPERSAMPLE
-                        Maximum number of unique haplotypes per sample in the
-                        first pass, no matter what the ploidy level of the
-                        individual. Default:20
-  -m MAXHAPLOTYPEINPOPULATION, --maxHaplotypeInPopulation MAXHAPLOTYPEINPOPULATION
-                        Maximum number of haplotypes per marker in the
-                        population. Default:1000
-  -a MAF, --maf MAF     Minimum minor allele frequency Default:0.05
-  -l MINHAPLOTYPELENGTH, --minHaplotypeLength MINHAPLOTYPELENGTH
-                        Minimum haplotype length (after removing the primers.
-                        It must be an integer 1 or larger.) Default:20
-  -d MERGEDUPLICATE, --mergeDuplicate MERGEDUPLICATE
-                        Whether to merge the duplicate samples. 1: merge; 0:
-                        not merge and the duplicated sample will be named
-                        <sampleName>__<index starting from 1> . Default:1
-  -e PCRERRORCORR, --PCRErrorCorr PCRERRORCORR
-                        Correct PCR errors based on allele frequency (only
-                        applicable for biparental families). 0: No correction;
-                        1: Correct error in bi-parental population based on
-                        allele read count distribution in the population.
-                        Default:0, no correction
-  -p PLOIDY, --ploidy PLOIDY
-                        Ploidy, default 2
+  *-h	show this help message and exit
+  *-i	Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes
+  *-j	Number of simultaneous jobs. Default:8
+  *-t	Number of threads per job. Default:4
+  *-c	Minimum number of samples per haplotypes. Default:10
+  *-n	Maximum number of unique haplotypes per sample to be kept in the first step. Default:20
+  *-m	Maximum number of haplotypes per marker in the population. Default:1000
+  *-a	Minimum minor allele frequency Default:0.05
+  *-l	Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:20
+  *-d	Whether to merge the duplicate samples. 1: Merge; 0: Do not merge and the duplicated sample will be named <sampleName>__<index starting from 1>. Default:1
+  -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
+  -p	Ploidy, default 2
 
 
 ## Authors
