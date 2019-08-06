@@ -52,6 +52,7 @@ def main():
     global correctErrorFileList
     global readCountMatrixFile
     global alleleFastaFile
+    global topAlleleFastaFile
 
     #check dependencies
     print ("Checking dependencies:")
@@ -62,8 +63,8 @@ def main():
         sys.exit()
 
     if (not checkApp("muscle")):
-        if (args.PCRErrorCorr ==1):
-            sys.exit()
+        sys.exit()
+
 
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
 
@@ -115,6 +116,7 @@ def main():
     HapMatrixFile = f"{args.output}/hap_genotype_matrix"
     readCountMatrixFile = f"{args.output}/markerToSampleReadCountMatrix"
     alleleFastaFile = f"{args.output}/HaplotypeAllele.fasta"
+    topAlleleFastaFile = f"{args.output}/topHaplotypeAllele.fasta"
     modDir = f"{args.output}/mod1"   # store data from error correction 1
 
 
@@ -589,8 +591,9 @@ def callHapGenotypes():
     hmFh.close()
 
 
-    ## write a fasta file with all alleles
+    ## write a fasta file with all alleles, and a fasta file with only the top allele
     fastaFh = open (alleleFastaFile, "w")
+    topFh = open (topAlleleFastaFile, "w")
     for marker in outputMarkerList:
         if marker in markerToFinalAllele:
             alleleToSeq = {}
@@ -598,7 +601,8 @@ def callHapGenotypes():
                 for line in ms:
                     [tagId, seqStr, sampleNumber, copyNumber]  = line.split()
                     alleleToSeq[tagId] =seqStr
-
+            topAllele= markerToFinalAllele[marker][0]
+            topFh.write(f">{marker}\n{alleleToSeq[topAllele]}\n")
             for allele in markerToFinalAllele[marker]:
                 fastaFh.write(f">{marker}#{allele}\n{alleleToSeq[allele]}\n")
 
