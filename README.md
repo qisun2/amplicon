@@ -27,7 +27,7 @@ Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any dir
 2. In the data directory, execute this command:  
 amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15  
  * -j 10:  process 10 samples simultaneously. This should not exceed the total number of CPU cores on your computer, and should not exceed 20 even if you have more cores du to IO limitation.  
- * =a 0.15: minimum minor allele frequency  
+ * -a 0.15: minimum minor allele frequency  
 
 ### Output files
   * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
