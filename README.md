@@ -1,4 +1,4 @@
-# amplicon.sh
+# amplicon.py
 
 This python script (amplicon.py) is developed for the Vitisgen2 project (https://www.vitisgen2.org/) to analyzes multi-plexed amplicon sequencing data, optimized for high-throughput IDT rhAmpSeq data. Another script (to_lep_map.pl) converts the output from amplicon.py to a VCF file that can be loaded into LepMap3 software for genetic linkage map construction. The alleles in the VCF file (A, C, G, T) are not actual nucleotide alleles, but symbols representing up to 4 haplotytpe alleles per marker. There is a lookup table in the output files to give you the actual sequences of each haplotype represented by the "ACGT".
 
@@ -18,16 +18,16 @@ The following commands should be installed and in the PATH:
 Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any directory
 
 ### Usage
-1. Preparing data files.
-  Put the following items in the same directory:
-  * Sample file: A tab-delimited text file with three columns. 1)Sample Name; 2) Paired-end sequence file 1 (fastq or fastq.gz); 3) Paired-end sequence file 2.
-  * Key file: A tab delimited text file with three columns. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence.
-  * All fastq.gz files listed in the sample file.
+1. Preparing data files.  
+  Put the following items in the same directory:  
+  * Sample file: A tab-delimited text file with three columns. 1)Sample Name; 2) Paired-end sequence file 1 (fastq or fastq.gz); 3) Paired-end sequence file 2.  
+  * Key file: A tab delimited text file with three columns. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence.  
+  * All fastq.gz files listed in the sample file.  
 
-2. In the data directory, execute this command:
-amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
- * -j 10:  process 10 samples simultaneously. This should not exceed the total number of CPU cores on your computer, and should not exceed 20 even if you have more cores du to IO limitation.
- * =a 0.15: minimum minor allele frequency
+2. In the data directory, execute this command:  
+amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15  
+ * -j 10:  process 10 samples simultaneously. This should not exceed the total number of CPU cores on your computer, and should not exceed 20 even if you have more cores du to IO limitation.  
+ * =a 0.15: minimum minor allele frequency  
 
 ### Output files
   * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
