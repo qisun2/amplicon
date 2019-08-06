@@ -33,6 +33,7 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
   * hap_genotype_matrix: A file transposed from hap_genotype file, and without read count per allele information. 
   * HaplotypeAllele.fasta: A fasta file with haplotype sequence per allele.
+  * topHaplotypeAllele.fasta: A fasta file with the top allele per marker
 
 
 ### Other parameters
