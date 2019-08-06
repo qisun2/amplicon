@@ -1,6 +1,7 @@
 # amplicon.py
 
 This python script (amplicon.py) is developed for the Vitisgen2 project (https://www.vitisgen2.org/) to analyzes multi-plexed amplicon sequencing data, optimized for high-throughput IDT rhAmpSeq data. Another script (to_lep_map.pl) converts the output from amplicon.py to a VCF file that can be loaded into LepMap3 software for genetic linkage map construction. The alleles in the VCF file (A, C, G, T) are not actual nucleotide alleles, but symbols representing up to 4 haplotytpe alleles per marker. There is a lookup table in the output files to give you the actual sequences of each haplotype represented by the "ACGT".  
+  
 If you want to run your amplicon sequencing data using GATK, you can use this code: https://bitbucket.org/cornell_bioinformatics/gatk4amplicon  
 
 ## Getting Started
