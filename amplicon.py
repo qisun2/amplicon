@@ -32,7 +32,6 @@ from Bio import SeqIO
 #export PATH=/programs/muscle:$PATH:/programs/bbmap-38.45:$PATH
 
 #some constants
-maxAlleleReadCountRatio = 10 #In each sample, if a minor allele has less than 1/maxAlleleReadCountRatio of the reads of the top allele, this minor allele is skiped
 haplotypeAvgToLengthRatio =2 #For each marker, if an allele has less than 1/haplotypeAvgToLengthRatio of the averagelength, this allele is skipped
 
 def main():
@@ -69,7 +68,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
 
     # Required arguments
-    parser.add_argument('-s','--sample',type=str,required=True,help='Sample file. Tab delimited text file with 2 or 3 columns: sample Name, fastq file1, (optional)fastq file2')
+    parser.add_argument('-s','--sample',type=str,required=True,help='Sample file. Tab delimited text file with 3 or 4 columns: sample_Name, plate_well, fastq_file1, (optional)fastq_file2. Plate_well is a string to uniquely define sample if sample names are duplicated.')
     parser.add_argument('-k','--key',type=str,required=True,help='Key file. Tab delimited text file with 3 columns: amplicon name, 5 prime sequence, 3 prime sequence')
     parser.add_argument('-o','--output',type=str,required=True,help='Output directory')
 
@@ -82,10 +81,11 @@ def main():
     parser.add_argument('-n','--maxHaplotypePerSample',type=int,required=False,default=20,help='Maximum number of unique haplotypes per sample in the first pass, no matter what the ploidy level of the individual. Default:20')
     parser.add_argument('-m','--maxHaplotypeInPopulation',type=int,required=False,default=1000,help='Maximum number of haplotypes per marker in the population. Default:1000')
     parser.add_argument('-a','--maf',type=float,required=False,default=0.05,help='Minimum minor allele frequency Default:0.05')
-    parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=20,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:20')
+    parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=20,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:75')
     parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=1,help='Whether to merge the duplicate samples. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:1')
     parser.add_argument('-e','--PCRErrorCorr',type=int,required=False,default=0,help='Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction')
     parser.add_argument('-p','--ploidy',type=int,required=False,default=2,help='Ploidy, default 2')
+    parser.add_argument('-r','--maxAlleleReadCountRatio',type=int,required=False,default=20,help='Maximum read count ratio between the two alleles in each sample, default 20')
 
 
     if sys.version_info[0] < 3:
@@ -166,11 +166,12 @@ def main():
                     continue
                 line = line.rstrip()
                 fieldArray = line.split(sep="\t")
-                sampleName = re.sub("\W", "", fieldArray[0])
+                sampleName = re.sub("\s", "", fieldArray[0])
+                plateWell = re.sub("\s", "", fieldArray[1])
                 if (sampleName in checkSampleDup):
-                    checkSampleDup[sampleName].append((fieldArray[1], fieldArray[2]))
+                    checkSampleDup[sampleName].append((fieldArray[2], fieldArray[3]))
                 else:
-                    checkSampleDup[sampleName] = [(fieldArray[1], fieldArray[2])]
+                    checkSampleDup[sampleName] = [(fieldArray[2], fieldArray[3])]
             fhs.close()
 
         # execute file merging only if step 1 not skipped
@@ -209,37 +210,32 @@ def main():
                 continue
             line = line.rstrip()
             fieldArray = line.split(sep="\t")
-            sampleName = re.sub("\W", "", fieldArray[0])
+            sampleName = re.sub("\s", "", fieldArray[0])
+            plateWell = re.sub("\s", "", fieldArray[1])
             if (sampleName in checkSampleDup):
                 if (args.mergeDuplicate == 1):
                     continue
                 else:
-                    sampleName = sampleName + "__" + str(checkSampleDup[sampleName])
+                    sampleName = sampleName + "$" + plateWell
                     checkSampleDup[sampleName]+=1
             else:
                 checkSampleDup[sampleName] = 1
                 if (sampleName in fileMerged):
-                    fieldArray[1] = fileMerged[sampleName][0]
-                    fieldArray[2] = fileMerged[sampleName][1]
+                    fieldArray[2] = fileMerged[sampleName][0]
+                    fieldArray[3] = fileMerged[sampleName][1]
 
             sampleList.append(sampleName)
-            if (len(fieldArray) < 3):
-                print(f"Error: Sample file must have at least Three columns, and with no header line. Single-end reads are not supported now. Will be added later")
+            if (len(fieldArray) < 4):
+                print(f"Error: Sample file must have at least four columns, and with no header line. Single-end reads are not supported now. Will be added later")
                 sys.exit()
-            elif (len(fieldArray) == 2):
-                paired = False
+            else:
                 if (not os.path.isfile(fieldArray[1])):
-                    print(f"Error: Sample fastq file {fieldArray[1]} does not exist!")
-                    sys.exit()
-                sampleToFileList.append((sampleName, fieldArray[1], ""))
-            elif (len(fieldArray) > 2):
-                if (not os.path.isfile(fieldArray[1])):
-                    print(f"Error: Sample fastq file {fieldArray[1]} does not exist!")
+                    print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
                     sys.exit()
                 if (not os.path.isfile(fieldArray[2])):
-                    print(f"Error: Sample fastq file {fieldArray[1]} does not exist!")
+                    print(f"Error: Sample fastq file {fieldArray[3]} does not exist!")
                     sys.exit()
-                sampleToFileList.append((sampleName, fieldArray[1], fieldArray[2]))
+                sampleToFileList.append((sampleName, fieldArray[2], fieldArray[3]))
 
     # split the read by primers, and remove primer from each read, and collapase identical reads, and keep top <arg.maxHaplotypePerSample> tags per sample
     if ("1" not in args.skip):
@@ -323,7 +319,7 @@ def splitByCutadapt(sampleName, file1, file2):
                         if (tagCount==0):
                             topAlleleReadCount = copyNumber
                         if (tagCount < args.maxHaplotypePerSample):
-                            if ((topAlleleReadCount/copyNumber) < maxAlleleReadCountRatio):
+                            if ((topAlleleReadCount/copyNumber) < args.maxAlleleReadCountRatio):
                                 tagCount+=1
                                 tbsfh.write(f"{sampleName}\t{marker}\t{seqStr}\t{copyNumber}\n")
                     cfh.close()

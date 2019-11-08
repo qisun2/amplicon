@@ -22,7 +22,7 @@ Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any dir
 ### Usage
 1. Preparing data files.  
   Put the following items in the same directory:  
-  * Sample file: A tab-delimited text file with three columns. 1)Sample Name; 2) Paired-end sequence file 1 (fastq or fastq.gz); 3) Paired-end sequence file 2.  
+  * Sample file: A tab-delimited text file with four columns. 1)Sample Name; 2)sample plate_well, it can be any string to uniquely identify a sample if the sample names are duplicated; 3) Paired-end sequence file 1 (fastq or fastq.gz); 4) Paired-end sequence file 2.  
   * Key file: A tab delimited text file with three columns. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence.  
   * All fastq.gz files listed in the sample file.  
 
@@ -51,6 +51,7 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * -d	Whether to merge the duplicate samples. 1: Merge; 0: Do not merge and the duplicated sample will be named <sampleName>__<index starting from 1>. Default:1
   * -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
   * -p	Ploidy, default 2
+  * -r	Maximum read count ratio between the two alleles in each sample, default 20
 
 ### to_lep_map.pl script
 As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a VCF file. There is also a lookup table to show the corresponding haplotype allele for "A" "C" "G" and "T".  
