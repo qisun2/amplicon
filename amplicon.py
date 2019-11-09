@@ -158,26 +158,26 @@ def main():
     ## first check and merge duplicate samples
     checkSampleDup = {}
     fileMerged = {}
-    if (args.mergeDuplicate == 1):
 
-        with open(args.sample, 'r') as fhs:
-            for line in fhs:
-                if (not re.match("\w", line)):
-                    continue
-                line = line.rstrip()
-                fieldArray = line.split(sep="\t")
-                sampleName = re.sub("\s", "", fieldArray[0])
-                plateWell = re.sub("\s", "", fieldArray[1])
-                if (sampleName in checkSampleDup):
-                    checkSampleDup[sampleName].append((fieldArray[2], fieldArray[3]))
-                else:
-                    checkSampleDup[sampleName] = [(fieldArray[2], fieldArray[3])]
-            fhs.close()
+    with open(args.sample, 'r') as fhs:
+        for line in fhs:
+            if (not re.match("\w", line)):
+                continue
+            line = line.rstrip()
+            fieldArray = line.split(sep="\t")
+            sampleName = re.sub("\s", "", fieldArray[0])
+            plateWell = re.sub("\s", "", fieldArray[1])
+            if (sampleName in checkSampleDup):
+                checkSampleDup[sampleName].append((fieldArray[2], fieldArray[3]))
+            else:
+                checkSampleDup[sampleName] = [(fieldArray[2], fieldArray[3])]
+        fhs.close()
 
-        # execute file merging only if step 1 not skipped
+    # execute file merging only if step 1 not skipped
 
-        for sampleName, files in checkSampleDup.items():
-            if (len(files)>1):
+    for sampleName, files in checkSampleDup.items():
+        if (len(files)>1):
+            if (args.mergeDuplicate == 1):
                 ### merge
                 file1List = ""
                 file2List = ""
@@ -200,42 +200,42 @@ def main():
                     os.system(mergeCmd2)
 
                 fileMerged[sampleName] = [f"{sampleName}.merged.R1.fastq{attachGZ}", f"{sampleName}.merged.R2.fastq{attachGZ}"]
+            else:
+                fileMerged[sampleName] = "duplicated"
 
 
-
-    checkSampleDup = {}
     with open(args.sample, 'r') as fhs:
         for line in fhs:
             if (not re.match("\w", line)):
                 continue
             line = line.rstrip()
             fieldArray = line.split(sep="\t")
-            sampleName = re.sub("\s", "", fieldArray[0])
-            plateWell = re.sub("\s", "", fieldArray[1])
-            if (sampleName in checkSampleDup):
-                if (args.mergeDuplicate == 1):
-                    continue
-                else:
-                    sampleName = sampleName + "$" + plateWell
-                    checkSampleDup[sampleName]+=1
-            else:
-                checkSampleDup[sampleName] = 1
-                if (sampleName in fileMerged):
-                    fieldArray[2] = fileMerged[sampleName][0]
-                    fieldArray[3] = fileMerged[sampleName][1]
-
-            sampleList.append(sampleName)
             if (len(fieldArray) < 4):
                 print(f"Error: Sample file must have at least four columns, and with no header line. Single-end reads are not supported now. Will be added later")
                 sys.exit()
-            else:
-                if (not os.path.isfile(fieldArray[2])):
-                    print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
-                    sys.exit()
-                if (not os.path.isfile(fieldArray[3])):
-                    print(f"Error: Sample fastq file {fieldArray[3]} does not exist!")
-                    sys.exit()
-                sampleToFileList.append((sampleName, fieldArray[2], fieldArray[3]))
+
+            sampleName = re.sub("\s", "", fieldArray[0])
+            plateWell = re.sub("\s", "", fieldArray[1])
+            if (sampleName in fileMerged):
+                if ((args.mergeDuplicate == 1) and (fileMerged[sampleName] == "done")):
+                    continue
+                elif (args.mergeDuplicate == 1):
+                    fieldArray[2] = fileMerged[sampleName][0]
+                    fieldArray[3] = fileMerged[sampleName][1]
+                    fileMerged[sampleName] = "done"
+                else:
+                    sampleName = sampleName + "$" + plateWell
+
+            sampleList.append(sampleName)
+
+            if (not os.path.isfile(fieldArray[2])):
+                print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
+                sys.exit()
+            if (not os.path.isfile(fieldArray[3])):
+                print(f"Error: Sample fastq file {fieldArray[3]} does not exist!")
+                sys.exit()
+                
+            sampleToFileList.append((sampleName, fieldArray[2], fieldArray[3]))
 
     # split the read by primers, and remove primer from each read, and collapase identical reads, and keep top <arg.maxHaplotypePerSample> tags per sample
     if ("1" not in args.skip):
