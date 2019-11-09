@@ -75,8 +75,8 @@ def main():
 
     # Optional arguments
     parser.add_argument('-i','--skip',type=str,required=False,default="",help='Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes')
-    parser.add_argument('-j','--job',type=int,required=False,default=8,help='Number of simultaneous jobs. Default:8')
-    parser.add_argument('-t','--thread',type=int,required=False,default=4,help='Number of threads per job. Default:4')
+    parser.add_argument('-j','--job',type=int,required=False,default=4,help='Number of simultaneous jobs. Default:4')
+    parser.add_argument('-t','--thread',type=int,required=False,default=2,help='Number of threads per job. Default:2')
     parser.add_argument('-c','--minSamplePerHaplotype',type=int,required=False,default=10,help='Minimum number of samples per haplotypes. Default:10')
     parser.add_argument('-n','--maxHaplotypePerSample',type=int,required=False,default=20,help='Maximum number of unique haplotypes per sample in the first pass, no matter what the ploidy level of the individual. Default:20')
     parser.add_argument('-m','--maxHaplotypeInPopulation',type=int,required=False,default=1000,help='Maximum number of haplotypes per marker in the population. Default:1000')
@@ -229,10 +229,10 @@ def main():
                 print(f"Error: Sample file must have at least four columns, and with no header line. Single-end reads are not supported now. Will be added later")
                 sys.exit()
             else:
-                if (not os.path.isfile(fieldArray[1])):
+                if (not os.path.isfile(fieldArray[2])):
                     print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
                     sys.exit()
-                if (not os.path.isfile(fieldArray[2])):
+                if (not os.path.isfile(fieldArray[3])):
                     print(f"Error: Sample fastq file {fieldArray[3]} does not exist!")
                     sys.exit()
                 sampleToFileList.append((sampleName, fieldArray[2], fieldArray[3]))
