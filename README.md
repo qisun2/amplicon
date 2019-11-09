@@ -41,13 +41,13 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
 ### Other parameters
   * -h	show this help message and exit
   * -i	Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes
-  * -j	Number of simultaneous jobs. Default:8
-  * -t	Number of threads per job. Default:4
+  * -j	Number of simultaneous jobs. Default:4
+  * -t	Number of threads per job. Default:2
   * -c	Minimum number of samples per haplotypes. Default:10
   * -n	Maximum number of unique haplotypes per sample to be kept in the first step. Default:20
   * -m	Maximum number of haplotypes per marker in the population. Default:1000
-  * -a	Minimum minor allele frequency Default:0.05
-  * -l	Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:20
+  * -a	Minimum minor allele frequency Default:0.01
+  * -l	Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50
   * -d	Whether to merge the duplicate samples. 1: Merge; 0: Do not merge and the duplicated sample will be named <sampleName>__<index starting from 1>. Default:1
   * -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
   * -p	Ploidy, default 2
