@@ -41,8 +41,8 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
 ### Other parameters
   * -h	show this help message and exit
   * -i	Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes
-  * -j	Number of simultaneous jobs. Default:4
-  * -t	Number of threads per job. Default:2
+  * -j	Number of simultaneous jobs. Default:8
+  * -t	Number of threads per job. Default:1
   * -c	Minimum number of samples per haplotypes. Default:10
   * -n	Maximum number of unique haplotypes per sample to be kept in the first step. Default:20
   * -m	Maximum number of haplotypes per marker in the population. Default:1000
