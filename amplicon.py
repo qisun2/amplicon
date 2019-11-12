@@ -138,7 +138,7 @@ def main():
     primerfh = open(primerFile, "w")
     with open(args.key, 'r') as fhk:
         for line in fhk:
-            if (not re.match("\w", line)):
+            if (not re.search("\w", line)):
                 continue
             line = line.rstrip()
             fieldArray = line.split(sep="\t")
@@ -161,7 +161,7 @@ def main():
 
     with open(args.sample, 'r') as fhs:
         for line in fhs:
-            if (not re.match("\w", line)):
+            if (not re.search("\w", line)):
                 continue
             line = line.rstrip()
             fieldArray = line.split(sep="\t")
@@ -206,7 +206,7 @@ def main():
 
     with open(args.sample, 'r') as fhs:
         for line in fhs:
-            if (not re.match("\w", line)):
+            if (not re.search("\w", line)):
                 continue
             line = line.rstrip()
             fieldArray = line.split(sep="\t")
