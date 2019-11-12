@@ -65,7 +65,7 @@ def main():
         sys.exit()
 
 
-    parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
+    parser = argparse.ArgumentParser(description='Haplotype Genotype Caller on ampseq data.')
 
     # Required arguments
     parser.add_argument('-s','--sample',type=str,required=True,help='Sample file. Tab delimited text file with 3 or 4 columns: sample_Name, plate_well, fastq_file1, (optional)fastq_file2. Plate_well is a string to uniquely define sample if sample names are duplicated.')
