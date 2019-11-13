@@ -1,0 +1,22 @@
+Run haplotype genotyper
+Two scripts are requires:
+/home/vitisgen/tools/amplicon_slurm.py
+/home/vitisgen/tools/run_cutadapt.py
+
+1. keep sample file, key file, and fastq.gz files in the same directory
+2. from this directory,  produce a slurm batch file from the directory where the fastq files are located. the batch file is slurm.sh in the output directory
+ ~/amplicon/amplicon_slurm.py -s sampleFile -k keyFile  -x cbsum1c2b012 -y 10 -t 1 -o output -d 0
+**** this script is restartable, it will produce slurmSamples files which only contain samples not in the tagBySampleDir directory
+
+It will prompt a sbatch command for you to run manually. 
+If all done, run this same command will proceed to next step.a
+
+
+Run gatk
+Two scripts are requires:
+/home/vitisgen/tools/amplicon_gatk_slurm.py
+/home/vitisgen/tools/run_gatk.py
+
+~/vitisgen/tools/amplicon_gatk_slurm.py -s sampleFile -o output -r rhampseq_db  -t 1 -d 0 -i 2 -x cbsum1c2b012 -x 10
+
+
