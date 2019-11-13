@@ -224,7 +224,7 @@ def main():
                     fieldArray[3] = fileMerged[sampleName][1]
                     fileMerged[sampleName] = "done"
                 else:
-                    sampleName = sampleName + "$" + plateWell
+                    sampleName = sampleName + "__" + plateWell
 
             sampleList.append(sampleName)
 
