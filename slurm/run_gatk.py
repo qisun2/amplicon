@@ -124,32 +124,45 @@ def haplotypecaller(sampleName, file1, file2):
             if (not ((flag == "0" ) or (flag == "16" ))):
                 continue
 
-            # filter by mismatch
-            nm = fieldArray[11]
-            match = re.search("NM:i:(\d+)", nm)
-            if ((match) and (int(match[1]) <15)):
+            # filter by cigar soft clipping
+            cigar =  fieldArray[5]
+            match = re.findall("(\d+)S", cigar)
+            if (len(match) == 0):
                 pass
             else:
+                #maxClipLen = max(list(map(int, match)))
+                sumClipLen = sum(list(map(int, match)))
+                if (sumClipLen >5):
+                    continue
+
+
+            #filter by indel
+            indelCount = len(re.findall("[ID]", cigar))
+            if (indelCount>2):
                 continue
+
+            # filter by alignment score normalized by read length 
+            match = re.search("AS:i:(\d+)", fieldArray[13])
+            if (match):
+                algnCore = int(match[1])
+                seqlen = len(fieldArray[9])
+                normalizedScore = algnCore/seqlen
+                if (normalizedScore<0.7):
+                    #print(f"{algnCore} {fieldArray[11]} {cigar} {normalizedScore}")
+                    continue 
+                #elif (normalizedScore<0.8):
+                #    print(f"{algnCore} {seqlen} {fieldArray[11]} {cigar} {normalizedScore}")
+            else:
+                continue  
 
             #filter by mapq
             mapq = fieldArray[4]
             if (int(mapq) <40):
                 continue
 
-            # filter by cigar
-            cigar =  fieldArray[5]
-            match = re.findall("(\d+)S", cigar)
-
-            if (len(match) == 0):
-                pass
-            else:
-                match = max(list(map(int, match)))
-                if (match >5):
-                    continue
-
             wFh.write(line)
 
+    fh.close()
     wFh.close()
 
     cmd = f"{samtools} sort -T {workdir} -m 1G -O bam -o {workdir}/pass3.bam {workdir}/pass2.sam \n"

@@ -17,6 +17,10 @@ Two scripts are requires:
 /home/vitisgen/tools/amplicon_gatk_slurm.py
 /home/vitisgen/tools/run_gatk.py
 
-~/vitisgen/tools/amplicon_gatk_slurm.py -s sampleFile -o output -r rhampseq_db  -t 1 -d 0 -i 2 -x cbsum1c2b012 -x 10
+~/vitisgen/tools/amplicon_gatk_slurm.py -s sampleFile -o output -r rhampseq_db  -m 25 -t 1 -d 0 -i 2 -x cbsum1c2b012 -x 10
+
+The bam files are filtered by alignment scores, 5' and 3' clipping length (defined by -m, default 25)
+
+alignment score / read length > 0.7. roughly equivalent to 7% edit distance, and incorporating indels.
 
 
