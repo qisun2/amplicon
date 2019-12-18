@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import re
+import time
 
 
 bbmergeCMD = "/programs/bbmap-38.45/bbmerge.sh"
@@ -21,6 +22,7 @@ def main():
     global minHaplotypeLength
     global maxHaplotypePerSample
     global maxAlleleReadCountRatio
+    global primerErrorRate
     global workdir
     global sampleFile
     global primerFile
@@ -36,9 +38,10 @@ def main():
     minHaplotypeLength = sys.argv[6]
     maxHaplotypePerSample = int(sys.argv[7])
     maxAlleleReadCountRatio = int(sys.argv[8])
-    slurmBatchSize = int(sys.argv[9])
-    threads = int(sys.argv[10])
-    sampleID = int(sys.argv[11])
+    primerErrorRate = float(sys.argv[9])
+    slurmBatchSize = int(sys.argv[10])
+    threads = int(sys.argv[11])
+    sampleID = int(sys.argv[12])
 
     workdir= baseWorkdir + "/ampseq" + str(sampleID)
     sampleFile =  workdir + "/sampleFile"
@@ -52,8 +55,22 @@ def main():
     os.chdir(workdir)
 
     # scp the sample list file
-    os.system(f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputSampleFile} {sampleFile}")
-    os.system(f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputPrimerFile} {primerFile}")
+    while (True):
+        return_value = os.system(f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputSampleFile} {sampleFile}")
+        if (return_value==0):
+            break
+        print(f"scp return {scp_returned_value} for {sampleName}; wait 30 seconds and try again", flush=True)
+        time.sleep(30)
+ 
+    # scp the sample list file
+    while (True):
+        return_value = os.system(f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputPrimerFile} {primerFile}")
+        if (return_value==0):
+            break
+        print(f"scp return {scp_returned_value} for {sampleName}; wait 30 seconds and try again", flush=True)
+        time.sleep(30)
+
+    
 
     with open(primerFile, 'r') as fhs:
         for line in fhs:            
@@ -91,10 +108,25 @@ def main():
 
 
 def splitByCutadapt(sampleName, file1, file2):
-    cmd = f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file1} {workdir}/ \n"
-    cmd += f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file2} {workdir}/ \n"
-    scp_returned_value = os.system(cmd)
-    print(f"scp return {scp_returned_value} for {sampleName}", flush=True)
+
+    while (True):
+        cmd = f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file1} {workdir}/ "
+        scp_returned_value = os.system(cmd)
+        if (scp_returned_value==0):
+            print(f"scp return {scp_returned_value} for {sampleName}", flush=True)
+            break
+        print(f"scp return {scp_returned_value} for {sampleName}; wait 60 seconds and try again", flush=True)
+        time.sleep(60)
+
+    while (True):
+        cmd = f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file2} {workdir}/ "
+        scp_returned_value = os.system(cmd)
+        if (scp_returned_value==0):
+            print(f"scp return {scp_returned_value} for {sampleName}", flush=True)
+            break
+        print(f"scp return {scp_returned_value} for {sampleName}; wait 60 seconds and try again", flush=True)
+        time.sleep(60)
+
 
     try:
         sampleDir = f"./{sampleName}"
@@ -108,9 +140,10 @@ def splitByCutadapt(sampleName, file1, file2):
         print(f"bbmerge return {returned_value_bbmerge} for {sampleName}", flush=True)
 
         #run cutadapt to demultiplexing by primers
-        cmd = f"{cutadaptCMD} --quiet -e 0.1 --minimum-length={minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
+        cmd = f"{cutadaptCMD} --quiet -e {primerErrorRate} --minimum-length={minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
         #returned_value_cutadapt = subprocess.call(cmd, shell=True)
         returned_value_cutadapt = os.system(cmd)
+        print (cmd)
         print(f"cutadapt return {returned_value_cutadapt} for {sampleName}", flush=True)
 
         #collapse identical reads

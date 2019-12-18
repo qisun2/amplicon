@@ -85,6 +85,7 @@ def main():
     parser.add_argument('-r','--maxAlleleReadCountRatio',type=int,required=False,default=20,help='Maximum read count ratio between the two alleles in each sample, default 20')
     parser.add_argument('-x','--slurmcluster',type=str,required=False,default="",help='Slurm cluster name. Slurm is configured to run on Cornell BioHPC. e.g. "-x cbsumm10"')
     parser.add_argument('-y','--slurmBatchSize',type=int,required=False,default=10,help='Slurm job size. Number of samples per slurm job. default 10')
+    parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.1,help='Mismatch rate between pcr primer and reads, default 0.1')
 
 
     if sys.version_info[0] < 3:
@@ -314,7 +315,7 @@ def splitByPrimer():
 #SBATCH --mem-per-cpu=1G
 #SBATCH --array=0-{jobCounts}:{args.slurmBatchSize}
 
-srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {primerFileabs} {resultDirabs} {args.minHaplotypeLength} {args.maxHaplotypePerSample} {args.maxAlleleReadCountRatio} {args.slurmBatchSize} {args.thread} $SLURM_ARRAY_TASK_ID
+srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {primerFileabs} {resultDirabs} {args.minHaplotypeLength} {args.maxHaplotypePerSample} {args.maxAlleleReadCountRatio} {args.primerErrorRate} {args.slurmBatchSize} {args.thread} $SLURM_ARRAY_TASK_ID
 
 ''')
             sFh.close()
@@ -344,7 +345,7 @@ def splitByCutadapt(sampleName, file1, file2):
         logging.info(f"contiging {sampleName} done: {returned_value}")
 
         #run cutadapt to demultiplexing by primers
-        cmd = f"{cutadaptCMD} --quiet -e 0.1 --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
+        cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
         returned_value = subprocess.call(cmd, shell=True)
         logging.info(f"demultiplexing {sampleName} done: {returned_value}")
 

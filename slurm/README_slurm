@@ -3,7 +3,34 @@ Two scripts are requires:
 /home/vitisgen/tools/amplicon_slurm.py
 /home/vitisgen/tools/run_cutadapt.py
 
-1. keep sample file, key file, and fastq.gz files in the same directory
+1. Prepare a text file with plate list, one plate name per line
+2. On cbsudesktop04, run this command. It would create a directory "dataDir" with all fastq files, as well as sample and primer file
+/home/vitisgen/tools/queryFastq.pl -o dataDir -t rhampseq -l plateList.txt -f
+
+3. Prepare slurm cluster
+Reserve computers as needed.
+From one of the reserved computer node, run this command to create a slurm cluster. the slurm cluste is named after the first computer name.
+manage_slurm new computer1,computer2,...computerN
+
+4. On cbsudesktop04, 
+cd dataDir
+/home/vitisgen/tools/run_cutadapt.py -s sampleFile -k keyFile -x theNamepfTheCluster -o output -c 10 -n 10 -m 1000 -a 0.00005 -l 150 -d 0 -r 20 -y 20
+
+copy the slurm.sh created in the output directory to the first computer node.
+
+5. on the first computer node, run
+sbatch slurm.sh
+
+6. after this is done, kill the cluster, and cancel reservation from the biohpc web site.
+manage_slurm kill computer1
+
+7. going back to cbsudesktop04, and continue with step2 and 3 of the pipeline, with this command:
+/home/vitisgen/tools/run_cutadapt.py -s sampleFile -k keyFile -i 1 -o output -c 10 -n 10 -m 1000 -a 0.00005 -l 150 -d 0 -r 20 -y 20
+
+END
+
+
+keep sample file, key file, and fastq.gz files in the same directory
 2. from this directory,  produce a slurm batch file from the directory where the fastq files are located. the batch file is slurm.sh in the output directory
  ~/amplicon/amplicon_slurm.py -s sampleFile -k keyFile  -x cbsum1c2b012 -y 10 -t 1 -o output -d 0
 **** this script is restartable, it will produce slurmSamples files which only contain samples not in the tagBySampleDir directory
