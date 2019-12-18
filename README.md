@@ -52,6 +52,7 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
   * -p	Ploidy, default 2
   * -r	Maximum read count ratio between the two alleles in each sample, default 20
+  * -z	Mismatch rate between pcr primer and reads, default 0.1
 
 ### to_lep_map.pl script
 As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a VCF file. There is also a lookup table to show the corresponding haplotype allele for "A" "C" "G" and "T".  

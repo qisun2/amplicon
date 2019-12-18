@@ -86,6 +86,7 @@ def main():
     parser.add_argument('-e','--PCRErrorCorr',type=int,required=False,default=0,help='Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction')
     parser.add_argument('-p','--ploidy',type=int,required=False,default=2,help='Ploidy, default 2')
     parser.add_argument('-r','--maxAlleleReadCountRatio',type=int,required=False,default=20,help='Maximum read count ratio between the two alleles in each sample, default 20')
+    parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.1,help='Mismatch rate between pcr primer and reads, default 0.1')
 
 
     if sys.version_info[0] < 3:
@@ -289,7 +290,7 @@ def splitByCutadapt(sampleName, file1, file2):
         logging.info(f"contiging {sampleName} done: {returned_value}")
 
         #run cutadapt to demultiplexing by primers
-        cmd = f"cutadapt --quiet -e 0.1 --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
+        cmd = f"cutadapt --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
         returned_value = subprocess.call(cmd, shell=True)
         logging.info(f"demultiplexing {sampleName} done: {returned_value}")
 
