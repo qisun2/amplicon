@@ -33,7 +33,7 @@ def main():
     inputSampleFile = sys.argv[3]
     inputRefDir = sys.argv[4]
     destResultDir = sys.argv[5]
-    trim =  sys.argv[6]
+    trim = int(sys.argv[6])
     slurmBatchSize = int(sys.argv[7])
     threads = int(sys.argv[8])
     sampleID = int(sys.argv[9])

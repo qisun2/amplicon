@@ -22,9 +22,9 @@ samtools faidx genome.fasta
 bwa index genome.fasta
 
 # index image file needed by some Spark-based tools (if used)
-gatk --java-options "-Djava.io.tmpdir=$TMP" BwaMemIndexImageCreator \
-     -I genome.fasta \
-     -O genome.fasta.img
+#gatk --java-options "-Djava.io.tmpdir=$TMP" BwaMemIndexImageCreator \
+#     -I genome.fasta \
+#     -O genome.fasta.img
 
 
 

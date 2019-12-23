@@ -26,7 +26,7 @@ samtools = "samtools"
 picard = "java -jar /programs/picard-tools-2.19.2/picard.jar"
 RELEASE = "/programs/sentieon-genomics-201808.05"
 os.environ["SENTIEON_LICENSE"] = "cbsulogin2.tc.cornell.edu:8990"
-
+slurmScript = "/home/vitisgen/tools/run_gatk.py"
 
 def main():
 
@@ -49,6 +49,7 @@ def main():
     global slurmSampleList
     global slurmBatchFile
 
+
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data, using slurm.')
 
     # Required arguments
@@ -56,7 +57,7 @@ def main():
     parser.add_argument('-o','--output',type=str,required=True,help='Output directory')
     parser.add_argument('-r','--reference',type=str,required=True,help='directory of reference db. the directory should be prepared with the script /home/vitisgen/tools/gatk_genome.sh ref.fasta genomeDir')
     # Optional arguments
-    parser.add_argument('-m','--trim',type=int,required=False,default="25",help='Trim both the 5- and 3-prime end of the amplicon by this length. Default 22. Set to 0 for no trimming. The is necessary as primer regions are not reliable for genotyping.')
+    parser.add_argument('-m','--trim',type=int,required=False,default="25",help='Trim both the 5- and 3-prime end of the amplicon by this length. Default 25. Set to 0 for no trimming. The is necessary as primer regions are not reliable for genotyping.')
     parser.add_argument('-j','--job',type=int,required=False,default=8,help='Number of simultaneous jobs. Default:8')
     parser.add_argument('-t','--thread',type=int,required=False,default=1,help='Number of threads per job. Default:1')
     parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=1,help='Whether to merge the duplicate samples. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:1')
@@ -75,6 +76,7 @@ def main():
     sampleToFileList = []
     slurmBatchFile = f"{args.output}/slurm.sh"
     slurmSampleList = f"{args.output}/slurmSamples"
+    gvcfDir = f"{args.output}/gvcf"
 
     if (not os.path.isfile(args.sample)):
         parser.print_usage()
@@ -95,6 +97,8 @@ def main():
     if (not os.path.exists(args.output)):
         os.mkdir(args.output)
 
+    if (not os.path.exists(gvcfDir)):
+        os.mkdir(gvcfDir)
 
     logging.basicConfig(filename=args.output + '/run.log',level=logging.DEBUG)
 
@@ -221,8 +225,8 @@ def run_haplotypecaller():
         print(f"on slurm cluster {args.slurmcluster} ... ")
 
         ## check finished files for restart to be restartable
-        processedList = glob.glob(f"{args.output}/*.done")
-        processedList =  list(map(lambda each:each.replace(f"{args.output}/", ""), processedList))
+        processedList = glob.glob(f"{gvcfDir}/*.done")
+        processedList =  list(map(lambda each:each.replace(f"{gvcfDir}/", ""), processedList))
         processedList =  set(map(lambda each:each.replace(".done", ""), processedList))
         print ("Finished samples (will be skipped):")
         print (processedList)
@@ -231,7 +235,7 @@ def run_haplotypecaller():
         curr_wd = os.getcwd()
 
         slurmSampleListabs = os.path.abspath(slurmSampleList)
-        resultDirabs = os.path.abspath(args.output)
+        gvcfDirabs = os.path.abspath(gvcfDir)
         refDirabs = os.path.abspath(args.reference)
 
         jobCounts =0 
@@ -257,7 +261,7 @@ def run_haplotypecaller():
 #SBATCH --mem-per-cpu=1G
 #SBATCH --array=0-{jobCounts}:{args.slurmBatchSize}
 
-srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {refDirabs} {resultDirabs} {args.trim} {args.slurmBatchSize} {args.thread} $SLURM_ARRAY_TASK_ID
+srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {refDirabs} {gvcfDirabs} {args.trim} {args.slurmBatchSize} {args.thread} $SLURM_ARRAY_TASK_ID
 
 ''')
             sFh.close()
@@ -268,7 +272,7 @@ srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {refDirabs} {result
 
 
 def haplotypecaller(sampleName, file1, file2):
-    workdir=f"{args.output}/{sampleName}"
+    workdir=f"{gvcfDir}/{sampleName}"
     pathlib.Path(workdir).mkdir(parents=True, exist_ok=True)
 
     cmd = f"{bbmerge} t={args.thread} in1={file1} in2={file2} outm={workdir}/contig.fastq"
@@ -351,8 +355,8 @@ def haplotypecaller(sampleName, file1, file2):
 
     cmd = f"{samtools} sort -T {workdir} -m 1G -O bam -o {workdir}/pass3.bam {workdir}/pass2.sam \n"
     cmd += f"{picard} CleanSam INPUT={workdir}/pass3.bam OUTPUT={workdir}/pass4.bam \n"
-    cmd += f"mv {workdir}/pass4.bam {args.output}/{sampleName}.bam \n"
-    cmd += f"{picard} BuildBamIndex INPUT={args.output}/{sampleName}.bam \n"
+    cmd += f"mv {workdir}/pass4.bam {gvcfDir}/{sampleName}.bam \n"
+    cmd += f"{picard} BuildBamIndex INPUT={gvcfDir}/{sampleName}.bam \n"
 
     returned_value = os.system(cmd)
     if (returned_value==0):
@@ -360,7 +364,7 @@ def haplotypecaller(sampleName, file1, file2):
     else:
         logging.warning("clean bam error: " + sampleName)
 
-    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={args.output}\"  HaplotypeCaller -R {args.reference}/genome.fasta -I {args.output}/{sampleName}.bam -ERC GVCF --native-pair-hmm-threads {args.thread} -O {args.output}/{sampleName}.g.vcf"
+    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={gvcfDir}\"  HaplotypeCaller -R {args.reference}/genome.fasta -I {gvcfDir}/{sampleName}.bam -ERC GVCF --native-pair-hmm-threads {args.thread} -O {gvcfDir}/{sampleName}.g.vcf"
     logging.info("gatk cmd: " +cmd)
     returned_value = os.system(cmd)
 
@@ -375,14 +379,14 @@ def genotyper():
 
     sampleListStr = ""
     for sampleName in sampleList:
-        sampleListStr += f" --variant {args.output}/{sampleName}.g.vcf"
-    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={args.output} -Xmx8g\"  CombineGVCFs -R {args.reference}/genome.fasta {sampleListStr} -O {args.output}/all.g.vcf -L chr9|19496735-19496988"
+        sampleListStr += f" --variant {gvcfDir}/{sampleName}.g.vcf"
+    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={gvcfDir} -Xmx8g\"  CombineGVCFs -R {args.reference}/genome.fasta {sampleListStr} -O {gvcfDir}/all.g.vcf -L chr9|19496735-19496988"
     returned_value = subprocess.call(cmd, shell=True)
-    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={args.output} -Xmx8g\"  GenotypeGVCFs  -R {args.reference}/genome.fasta -V {args.output}/all.g.vcf -O {args.output}/gatk.vcf -L chr9|19496735-19496988"
+    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={gvcfDir} -Xmx8g\"  GenotypeGVCFs  -R {args.reference}/genome.fasta -V {gvcfDir}/all.g.vcf -O {gvcfDir}/gatk.vcf -L chr9|19496735-19496988"
     returned_value = subprocess.call(cmd, shell=True)
 
-    os.system ("rm {args.output}/*.bam*")
-    os.system ("rm {args.output}/*.g.vcf*")
+    os.system ("rm {gvcfDir}/*.bam*")
+    os.system ("rm {gvcfDir}/*.g.vcf*")
 
 
 def checkApp(checkCommand):
