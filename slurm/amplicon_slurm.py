@@ -279,11 +279,20 @@ def splitByPrimer():
         print(f"on slurm cluster {args.slurmcluster} ... ")
 
         ## check finished files for restart to be restartable
-        processedList = glob.glob(f"{tagBySampleDir}/*.done")
-        processedList =  list(map(lambda each:each.lstrip(f"{tagBySampleDir}/"), processedList))
-        processedList =  set(map(lambda each:each.rstrip(".done"), processedList))
+        processedList_done = glob.glob(f"{tagBySampleDir}/*.done")
+        processedList_done =  list(map(lambda each:each.replace(f"{tagBySampleDir}/", ""), processedList_done))
+        processedList_done =  set(map(lambda each:each.replace(".done", ""), processedList_done))
+
+        processedList_tbs = glob.glob(f"{tagBySampleDir}/*.tbs")
+        processedList_tbs =  list(map(lambda each:each.replace(f"{tagBySampleDir}/", ""), processedList_tbs))
+        processedList_tbs =  set(map(lambda each:each.replace(".tbs", ""), processedList_tbs))
+
+        processedList_readcount = glob.glob(f"{tagBySampleDir}/*.readcount")
+        processedList_readcount =  list(map(lambda each:each.replace(f"{tagBySampleDir}/", ""), processedList_readcount))
+        processedList_readcount =  set(map(lambda each:each.replace(".readcount", ""), processedList_readcount))
+
         print ("Finished samples (will be skipped):")
-        print (processedList)
+        #print (processedList)
 
         hostName =os.uname()[1]
         curr_wd = os.getcwd()
@@ -295,7 +304,7 @@ def splitByPrimer():
         jobCounts =0 
         sFh = open (slurmSampleList, "w")
         for ss in sampleToFileList:
-            if (not ss[0] in processedList):
+            if ((not ss[0] in processedList_done) or (not ss[0] in processedList_tbs) or (not ss[0] in processedList_readcount)):
                 jobCounts += 1
                 sFh.write(f"{ss[0]}\t{ss[1]}\t{ss[2]}\n")
         sFh.close()
@@ -330,7 +339,7 @@ srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {primerFileabs} {re
     mmFh.write("\n")
     mmFh.close()
     os.system(f"cat {tagBySampleDir}/*.readcount >> {readCountMatrixFile}")
-    os.system(f"rm {tagBySampleDir}/*.readcount")
+    #os.system(f"rm {tagBySampleDir}/*.readcount")
 
 def splitByCutadapt(sampleName, file1, file2):
     try:

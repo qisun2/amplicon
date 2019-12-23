@@ -222,8 +222,8 @@ def run_haplotypecaller():
 
         ## check finished files for restart to be restartable
         processedList = glob.glob(f"{args.output}/*.done")
-        processedList =  list(map(lambda each:each.lstrip(f"{args.output}/"), processedList))
-        processedList =  set(map(lambda each:each.rstrip(".done"), processedList))
+        processedList =  list(map(lambda each:each.replace(f"{args.output}/", ""), processedList))
+        processedList =  set(map(lambda each:each.replace(".done", ""), processedList))
         print ("Finished samples (will be skipped):")
         print (processedList)
 
@@ -369,16 +369,16 @@ def haplotypecaller(sampleName, file1, file2):
 def genotyper():
 
     print ("Checking dependencies: ")
-    if (not checkApp("gatk")):
-        sys.exit()
+    #if (not checkApp("gatk")):
+    #    sys.exit()
 
 
     sampleListStr = ""
     for sampleName in sampleList:
         sampleListStr += f" --variant {args.output}/{sampleName}.g.vcf"
-    cmd = f"gatk --java-options \"-Djava.io.tmpdir={args.output} -Xmx8g\"  CombineGVCFs -R {args.reference}/genome.fasta {sampleListStr} -O {args.output}/all.g.vcf"
+    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={args.output} -Xmx8g\"  CombineGVCFs -R {args.reference}/genome.fasta {sampleListStr} -O {args.output}/all.g.vcf -L chr9|19496735-19496988"
     returned_value = subprocess.call(cmd, shell=True)
-    cmd = f"gatk --java-options \"-Djava.io.tmpdir={args.output} -Xmx8g\"  GenotypeGVCFs  -R {args.reference}/genome.fasta -V {args.output}/all.g.vcf -O {args.output}/gatk.vcf"
+    cmd = f"{gatk} --java-options \"-Djava.io.tmpdir={args.output} -Xmx8g\"  GenotypeGVCFs  -R {args.reference}/genome.fasta -V {args.output}/all.g.vcf -O {args.output}/gatk.vcf -L chr9|19496735-19496988"
     returned_value = subprocess.call(cmd, shell=True)
 
     os.system ("rm {args.output}/*.bam*")

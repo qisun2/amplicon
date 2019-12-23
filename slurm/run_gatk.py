@@ -47,8 +47,18 @@ def main():
     os.chdir(workdir)
 
     # scp the sample list file
-    os.system(f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputSampleFile} {sampleFile}")
-    os.system(f"scp -r -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputRefDir} {refDir}")
+    while (True):
+        return_value = os.system(f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputSampleFile} {sampleFile}")
+        if (return_value==0):
+            break
+        time.sleep(30)
+ 
+    # scp the reference file
+    while (True):
+        return_value = os.system(f"scp -r -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{inputRefDir} {refDir}")
+        if (return_value==0):
+            break
+        time.sleep(30)
 
 
     sampleList = []
@@ -80,10 +90,24 @@ def main():
 
 
 def haplotypecaller(sampleName, file1, file2):
-    cmd = f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file1} {workdir}/ \n"
-    cmd += f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file2} {workdir}/ \n"
-    scp_returned_value = os.system(cmd)
-    print(f"scp return {scp_returned_value} for {sampleName}", flush=True)
+
+    while (True):
+        cmd = f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file1} {workdir}/ "
+        scp_returned_value = os.system(cmd)
+        if (scp_returned_value==0):
+            print(f"scp return {scp_returned_value} for {sampleName}", flush=True)
+            break
+        print(f"scp return {scp_returned_value} for {sampleName}; wait 60 seconds and try again", flush=True)
+        time.sleep(60)
+
+    while (True):
+        cmd = f"scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {hostName}:{datadir}/{file2} {workdir}/ "
+        scp_returned_value = os.system(cmd)
+        if (scp_returned_value==0):
+            print(f"scp return {scp_returned_value} for {sampleName}", flush=True)
+            break
+        print(f"scp return {scp_returned_value} for {sampleName}; wait 60 seconds and try again", flush=True)
+        time.sleep(60)
 
 
     cmd = f"{bbmerge} t={threads} in1={file1} in2={file2} outm={workdir}/contig.fastq"
