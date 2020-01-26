@@ -5,7 +5,7 @@ use Getopt::Std;
 my %opts;
 
 ##v2
-unless (getopts("g:b:m:p:f:n:xh", \%opts))
+unless (getopts("g:b:m:p:f:n:l:xh", \%opts))
 {
         printhelp();
         print "Error: some options are not set properly!\n";
@@ -82,6 +82,25 @@ if ($opts{"b"})
 		$blanks{$_ - 1} ="";
 	}
 }
+
+
+my %marker2chrpos ;
+my $lookuptable = 0;
+if ($opts{"l"}) 
+{
+	$lookuptable = 1;
+	my $markerlookupfile  = $opts{"l"};
+	open (IN, "$markerlookupfile")  || die "Error: cannot open marker to chromosome position file $markerlookupfile\n";
+	while (<IN>) 
+	{
+		chomp;
+		my ($marker, $chr, $pos) = split "\t";
+		$marker2chrpos{$marker} = "$chr\t$pos";
+	}
+	close IN;
+	
+}
+
 
 ##if both mom and dad available use alleles of mom and dad
 my $usealleles = "top4";
@@ -254,7 +273,15 @@ LOOP1:while (<IN>)
 	my $locus = shift @data;
 	my $alleles =shift @data;
 	my ($contig, $pos);
-	if ($locus=~/(.+)_(\d+)$/) 
+	if ($lookuptable) 
+	{
+		unless (exists $marker2chrpos{$locus}) 
+		{
+			next LOOP1;
+		}
+		($contig, $pos) = split "\t", $marker2chrpos{$locus};
+	}
+	elsif ($locus=~/(.+)_(\d+)$/) 
 	{
 		$contig = $1;
 		$pos = $2;
@@ -289,7 +316,7 @@ LOOP1:while (<IN>)
 			if(/(\d+)\(([0-9.]+)\)/)
 			{
 				my ($a, $f) = ($1, $2);
-				print "fff$f $maf\n";
+				#print "fff$f $maf\n";
 				if ($f>$maf) 
 				{
 					my $tindex = shift @aindex; 
@@ -499,6 +526,7 @@ sub printhelp
 	print "-m: maternal parent index, if there are several separated by comma. First sample index is 1.\n";
 	print "-p: paternal parent index, if there are several separated by comma. First sample is 1.\n";
 	print "-n: family name\n";
+	print "-l: provide a table to convert haplotype marker to chromosome name and position. A tab-delimited table with 3 columns: hapmarker, chr, pos\n";
 	print "-x: force using top 4 alleles even if parents are present\n";
 	print "-h: help menu.\n";
 }
