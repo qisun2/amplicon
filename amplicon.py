@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import logging
 from os import listdir
@@ -14,12 +14,14 @@ from operator import itemgetter
 import multiprocessing
 import re
 import traceback
-
+import glob
 
 from Bio import AlignIO
 from Bio.Align import AlignInfo
 from Bio.Alphabet import IUPAC, Gapped
 from Bio import SeqIO
+
+from collections import defaultdict
 
 #import uuid
 #from scipy import stats
@@ -33,6 +35,12 @@ from Bio import SeqIO
 
 #some constants
 haplotypeAvgToLengthRatio =2 #For each marker, if an allele has less than 1/haplotypeAvgToLengthRatio of the averagelength, this allele is skipped
+slurmScript = "/home/vitisgen/tools/run_cutadapt.py"
+
+bbmergeCMD = "/programs/bbmap-38.45/bbmerge.sh"
+cutadaptCMD = "cutadapt"
+baseWorkdir = "/workdir"
+
 
 def main():
 
@@ -52,20 +60,10 @@ def main():
     global readCountMatrixFile
     global alleleFastaFile
     global topAlleleFastaFile
+    global slurmSampleList
+    global slurmBatchFile
 
-    #check dependencies
-    print ("Checking dependencies:")
-    if (not checkApp("bbmerge.sh")):
-        sys.exit()
-
-    if (not checkApp("cutadapt")):
-        sys.exit()
-
-    if (not checkApp("muscle")):
-        sys.exit()
-
-
-    parser = argparse.ArgumentParser(description='Haplotype Genotype Caller on ampseq data.')
+    parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
 
     # Required arguments
     parser.add_argument('-s','--sample',type=str,required=True,help='Sample file. Tab delimited text file with 3 or 4 columns: sample_Name, plate_well, fastq_file1, (optional)fastq_file2. Plate_well is a string to uniquely define sample if sample names are duplicated.')
@@ -86,7 +84,10 @@ def main():
     parser.add_argument('-e','--PCRErrorCorr',type=int,required=False,default=0,help='Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction')
     parser.add_argument('-p','--ploidy',type=int,required=False,default=2,help='Ploidy, default 2')
     parser.add_argument('-r','--maxAlleleReadCountRatio',type=int,required=False,default=20,help='Maximum read count ratio between the two alleles in each sample, default 20')
+    parser.add_argument('-x','--slurmcluster',type=str,required=False,default="",help='Slurm cluster name. Slurm is configured to run on Cornell BioHPC. e.g. "-x cbsumm10"')
+    parser.add_argument('-y','--slurmBatchSize',type=int,required=False,default=10,help='Slurm job size. Number of samples per slurm job. default 10')
     parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.1,help='Mismatch rate between pcr primer and reads, default 0.1')
+    parser.add_argument('-g','--tagFasta',type=str,required=False,help='tag fasta file, sequence tag name should be >markerNam#alleleID, e.g. >rh_chr9_9574105#31')
 
 
     if sys.version_info[0] < 3:
@@ -119,6 +120,8 @@ def main():
     alleleFastaFile = f"{args.output}/HaplotypeAllele.fasta"
     topAlleleFastaFile = f"{args.output}/topHaplotypeAllele.fasta"
     modDir = f"{args.output}/mod1"   # store data from error correction 1
+    slurmBatchFile = f"{args.output}/slurm.sh"
+    slurmSampleList = f"{args.output}/slurmSamples"
 
 
     if (not os.path.exists(args.output)):
@@ -159,7 +162,6 @@ def main():
     ## first check and merge duplicate samples
     checkSampleDup = {}
     fileMerged = {}
-
     with open(args.sample, 'r') as fhs:
         for line in fhs:
             if (not re.search("\w", line)):
@@ -227,12 +229,14 @@ def main():
                 else:
                     sampleName = sampleName + "__" + plateWell
 
+            if (sampleName in sampleList):
+                continue
             sampleList.append(sampleName)
 
-            if (not os.path.isfile(fieldArray[2])):
+            if ((not os.path.isfile(fieldArray[2])) and  ("1" not in args.skip)):
                 print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
                 sys.exit()
-            if (not os.path.isfile(fieldArray[3])):
+            if ((not os.path.isfile(fieldArray[3])) and ("1" not in args.skip)):
                 print(f"Error: Sample fastq file {fieldArray[3]} does not exist!")
                 sys.exit()
                 
@@ -261,10 +265,77 @@ def main():
 
 
 def splitByPrimer():
-    print("Run splitByPrimer ...")
-    pool = multiprocessing.Pool(processes= args.job)
-    pool.starmap(splitByCutadapt, sampleToFileList)
-    pool.close()
+    print("Run splitByPrimer ")
+    if (args.slurmcluster == ""):
+        print("on single node ... ")
+#        print ("Checking bbmerge.sh: ")
+#        if (not checkApp("bbmerge.sh")):
+#            sys.exit()
+#        if (not checkApp("cutadapt")):
+#            sys.exit()
+
+        pool = multiprocessing.Pool(processes= args.job)
+        pool.starmap(splitByCutadapt, sampleToFileList)
+        pool.close()
+
+
+    else:
+        print(f"on slurm cluster {args.slurmcluster} ... ")
+
+        ## check finished files for restart to be restartable
+        processedList_done = glob.glob(f"{tagBySampleDir}/*.done")
+        processedList_done =  list(map(lambda each:each.replace(f"{tagBySampleDir}/", ""), processedList_done))
+        processedList_done =  set(map(lambda each:each.replace(".done", ""), processedList_done))
+
+        processedList_tbs = glob.glob(f"{tagBySampleDir}/*.tbs")
+        processedList_tbs =  list(map(lambda each:each.replace(f"{tagBySampleDir}/", ""), processedList_tbs))
+        processedList_tbs =  set(map(lambda each:each.replace(".tbs", ""), processedList_tbs))
+
+        processedList_readcount = glob.glob(f"{tagBySampleDir}/*.readcount")
+        processedList_readcount =  list(map(lambda each:each.replace(f"{tagBySampleDir}/", ""), processedList_readcount))
+        processedList_readcount =  set(map(lambda each:each.replace(".readcount", ""), processedList_readcount))
+
+        print ("Finished samples (will be skipped):")
+        #print (processedList)
+
+        hostName =os.uname()[1]
+        curr_wd = os.getcwd()
+
+        slurmSampleListabs = os.path.abspath(slurmSampleList)
+        primerFileabs = os.path.abspath(primerFile)
+        resultDirabs = os.path.abspath(tagBySampleDir)
+
+        jobCounts =0 
+        sFh = open (slurmSampleList, "w")
+        for ss in sampleToFileList:
+            if ((not ss[0] in processedList_done) or (not ss[0] in processedList_tbs) or (not ss[0] in processedList_readcount)):
+                jobCounts += 1
+                sFh.write(f"{ss[0]}\t{ss[1]}\t{ss[2]}\n")
+        sFh.close()
+
+        if (jobCounts > 0):
+            jobCounts = jobCounts -1
+
+            sFh = open (slurmBatchFile, "w")
+            sFh.write(f'''#!/bin/bash
+#
+#SBATCH --job-name=splitByPrimer
+#SBATCH --cluster={args.slurmcluster}
+#SBATCH --chdir=/workdir
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task={args.thread}
+#SBATCH --time=10-0
+#SBATCH --mem-per-cpu=1G
+#SBATCH --array=0-{jobCounts}:{args.slurmBatchSize}
+
+srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {primerFileabs} {resultDirabs} {args.minHaplotypeLength} {args.maxHaplotypePerSample} {args.maxAlleleReadCountRatio} {args.primerErrorRate} {args.slurmBatchSize} {args.thread} $SLURM_ARRAY_TASK_ID
+
+''')
+            sFh.close()
+            #os.system(f"sbatch {slurmBatchFile}")
+            sys.exit(f"Run slurm command manually: sbatch {args.output}/slurm.sh")         
+        else:
+            logging.info("cutadapt slurms jobs all finished.")
 
     mmFh = open (readCountMatrixFile, "w")
     mmFh.write("\t")
@@ -272,10 +343,7 @@ def splitByPrimer():
     mmFh.write("\n")
     mmFh.close()
     os.system(f"cat {tagBySampleDir}/*.readcount >> {readCountMatrixFile}")
-    os.system(f"rm {tagBySampleDir}/*.readcount")
-
-
-
+    #os.system(f"rm {tagBySampleDir}/*.readcount")
 
 def splitByCutadapt(sampleName, file1, file2):
     try:
@@ -284,13 +352,13 @@ def splitByCutadapt(sampleName, file1, file2):
             os.mkdir(sampleDir)
 
         #contig the paired end reads
-        cmd = f"bbmerge.sh t={args.thread} in1={file1} in2={file2} outm={sampleDir}/contig.fastq"
+        cmd = f"{bbmergeCMD} t={args.thread} in1={file1} in2={file2} outm={sampleDir}/contig.fastq"
         logging.info(f"Process {sampleName}: {cmd}")
         returned_value = subprocess.call(cmd, shell=True)
         logging.info(f"contiging {sampleName} done: {returned_value}")
 
         #run cutadapt to demultiplexing by primers
-        cmd = f"cutadapt --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
+        cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
         returned_value = subprocess.call(cmd, shell=True)
         logging.info(f"demultiplexing {sampleName} done: {returned_value}")
 
@@ -337,9 +405,19 @@ def splitByCutadapt(sampleName, file1, file2):
         print()
         raise e
 
+
 def getTagList():
     print ("Collapsing tags across samples")
     
+    markerTagToID =defaultdict(dict)
+    useExistTag = False
+    if (args.tagFasta != None):
+        useExistTag = True
+        for seq_record in SeqIO.parse(args.tagFasta, "fasta"):
+            (marker, alleleID) = seq_record.id.split("#") 
+            markerTagToID[marker][str(seq_record.seq)] = alleleID
+
+
     #collapse tags across samples
     # get sample and treat count for each unique sequence tag
     cmd = f"cut -f 2,3,4  {tagBySampleDir}/*.tbs"
@@ -392,14 +470,22 @@ def getTagList():
                     continue
                 if ((duelCount[0] >=args.minSamplePerHaplotype) and (tagId < args.maxHaplotypeInPopulation)):
                     tagId +=1
-                    tagTableFh.write(f"{tagId}\t{seqStr}\t{duelCount[0]}\t{duelCount[1]}\n");
+                    if (useExistTag):
+                        if seqStr in markerTagToID[marker]:
+                            myTagID= markerTagToID[marker][seqStr]
+                            tagTableFh.write(f"{myTagID}\t{seqStr}\t{duelCount[0]}\t{duelCount[1]}\n")
+                        else:
+                            continue
+                    else:
+                        tagTableFh.write(f"{tagId}\t{seqStr}\t{duelCount[0]}\t{duelCount[1]}\n");                    
             tagTableFh.close()
-
     tagToReadCount.clear()
     
 
 def correctPCRError():
     print("Run PCR error correction ...")
+    if (not checkApp("muscle")):
+        sys.exit()
     pool = multiprocessing.Pool(processes= args.job)
     pool.starmap(main_collapse, correctErrorFileList)
     pool.close()
