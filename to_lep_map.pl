@@ -5,7 +5,7 @@ use Getopt::Std;
 my %opts;
 
 ##v2
-unless (getopts("g:b:m:p:f:n:l:xh", \%opts))
+unless (getopts("g:b:m:p:j:k:f:n:l:xh", \%opts))
 {
         printhelp();
         print "Error: some options are not set properly!\n";
@@ -50,26 +50,42 @@ if ($opts{"f"})
 
 
 my %moms = ();
+my @moms = ();
 my $hasmom = -1;
+my $mname = "";
 if ($opts{"m"}) 
 {
 	my @t = $opts{"m"}=~/(\d+)/g;
-	$hasmom =$t[0] -1;
 	foreach  (@t) 
 	{
 		$moms{$_ - 1} ="";
 	}
+	@moms = sort {$a<=>$b} keys %moms;
+	$hasmom =$moms[0];
+
+	if ($opts{"j"}) 
+	{
+		$mname = $opts{"j"};
+	}
+
 }
 
 my %dads = ();
+my @dads = ();
 my $hasdad = -1;
+my $pname = "";
 if ($opts{"p"}) 
 {
 	my @t = $opts{"p"}=~/(\d+)/g;
-	$hasdad =$t[0] - 1;
 	foreach  (@t) 
 	{
 		$dads{$_ - 1} ="";
+	}
+	@dads = sort {$a<=>$b} keys %dads;
+	$hasdad =$dads[0];
+	if ($opts{"k"}) 
+	{
+		$pname = $opts{"k"};
 	}
 }
 
@@ -110,9 +126,10 @@ if (($hasmom>=0) && ($hasdad>=0) && ($forcetop4==0))
 }
 
 
-#open OUT, ">$familyName.lepmap3.pedigree.txt";
+open OUT, ">$familyName.lepmap3.pedigree.txt";
 open OUT2, ">$familyName.vcf";
 open OUT3, ">$familyName.vcf.allelelookup.txt";
+
 #open OUT4, ">$familyName.lepmap2.txt";
 #open OUT5, ">$familyName.lepmap2.markers.txt";
 #open OUT6, ">$familyName.rqtl.txt";
@@ -155,6 +172,10 @@ if ($hasdad>=0)
 {
 	$usedSampleCount++;
 	$dadSample = $samples[$hasdad];
+	if ($pname ne "") 
+	{
+		$dadSample  = $pname;
+	}
 	unless ($dadSample) 
 	{
 		my $c = @samples + 0;
@@ -172,6 +193,12 @@ if ($hasmom>=0)
 {
 	$usedSampleCount++;
 	$momSample = $samples[$hasmom];
+
+	if ($mname ne "") 
+	{
+		$momSample  = $mname;
+	}
+
 	unless ($momSample) 
 	{
 		my $c = @samples + 0;
@@ -210,41 +237,41 @@ LOOP3:for (my $i=0; $i<=$#samples; $i++)
 
 
 ### first line
-#print OUT "Contig\tPos";
-#for (my $i=0; $i< $usedSampleCount; $i++) 
-#{
-#	print OUT "\t".$familyName;
-#}
-#
-#
+print OUT "Contig\tPos";
+for (my $i=0; $i< $usedSampleCount; $i++) 
+{
+	print OUT "\t".$familyName;
+}
+print OUT "\n";
+
 ##second line
-#print OUT "Contig\tPos\t";
-#print OUT (join "\t", @usedSamples);
-#print OUT "\n";
+print OUT "Contig\tPos\t";
+print OUT (join "\t", @usedSamples);
+print OUT "\n";
 #
 ##third line
-#print OUT "Contig\tPos\t";
-#print OUT (join "\t", @usedSamplesDad);
-#print OUT "\n";
+print OUT "Contig\tPos\t";
+print OUT (join "\t", @usedSamplesDad);
+print OUT "\n";
 #
 ##fourth line
-#print OUT "Contig\tPos\t";
-#print OUT (join "\t", @usedSamplesMom);
-#print OUT "\n";
+print OUT "Contig\tPos\t";
+print OUT (join "\t", @usedSamplesMom);
+print OUT "\n";
 #
 ##fifth line
-#print OUT "Contig\tPos\t";
-#print OUT (join "\t", @usedSamplesSex);
-#print OUT "\n";
+print OUT "Contig\tPos\t";
+print OUT (join "\t", @usedSamplesSex);
+print OUT "\n";
 #
 #
 ### six line
-#print OUT "Contig\tPos";
-#for (my $i=0; $i< $usedSampleCount; $i++) 
-#{
-#	print OUT "\t0";
-#}
-#print OUT "\n";
+print OUT "Contig\tPos";
+for (my $i=0; $i< $usedSampleCount; $i++) 
+{
+	print OUT "\t0";
+}
+print OUT "\n";
 
 
 
@@ -266,6 +293,9 @@ for (my $i=0; $i< $usedSampleCount; $i++)
 
 my %markernameToContig;
 my %markernameToPos;
+my %outputLines = ();
+my %outputLinesPos = ();
+
 LOOP1:while (<IN>) 
 {
 	s/\s+$//;
@@ -308,6 +338,16 @@ LOOP1:while (<IN>)
 	my @aNT = qw(A C G T);
 	my %aindexToNt = (0=>"A", 1=>"C", 2=>"G", 3=>"T");
 
+
+	## merging
+
+	merge_indv(\@moms, \@data);
+
+
+	merge_indv(\@dads, \@data);
+
+
+
 	if ($usealleles eq "top4") 
 	{
 		LOOP2:foreach  (@alleles) 
@@ -333,7 +373,7 @@ LOOP1:while (<IN>)
 	}
 	elsif ($usealleles eq "parents")
 	{
-		my @parents = (keys %moms, keys %dads);
+		my @parents = ($hasmom, $hasdad);
 		my %checkParentAlleles = ();
 
 		LOOPP:foreach my $i (@parents) 
@@ -395,7 +435,8 @@ LOOP1:while (<IN>)
 	}
 	
 	push @lepmap2Markers, $locus;
-	print OUT2 $contig, "\t", $pos, "\t", $locus, "\t", $ref, "\t", $alt, "\t.\tPASS\t.\tGT:AD:DP" ;
+	my $outline = join "\t", ($contig, $pos, $locus, $ref,  $alt, ".\tPASS\t.\tGT:AD:DP" );
+	#print OUT2 $contig, "\t", $pos, "\t", $locus, "\t", $ref, "\t", $alt, "\t.\tPASS\t.\tGT:AD:DP" ;
 
 	my $sampleIndexInLM2 = 0;
 	foreach  my $i (@usedSampleIndex) 
@@ -455,7 +496,8 @@ LOOP1:while (<IN>)
 			}
 		}
 		$ADstr =~ s/,$//;
-		print OUT2 "\t$outgt:$ADstr:$tDP";
+		$outline .= "\t$outgt:$ADstr:$tDP";
+		#print OUT2 "\t$outgt:$ADstr:$tDP";
 		push  @{$lepmap2[$sampleIndexInLM2]}, $outgt_lm2;
 		push @{$rqtl[$sampleIndexInLM2]}, $outgt_rqtl;
 		$sampleIndexInLM2 ++;
@@ -464,14 +506,31 @@ LOOP1:while (<IN>)
 
 	}
 	#exit;
-	print OUT2 "\n";
-	 
+	push @{$outputLines{$contig}}, $outline;
+	push @{$outputLinesPos{$contig}}, $pos;
 
 
+	#print OUT2 "\n";
 }
+
+my @contigs = sort keys %outputLines;
+foreach my $contig (@contigs) 
+{
+	my @aa = @{$outputLinesPos{$contig}};
+	my @idx = sort { $aa[$a] <=> $aa[$b] } 0 .. $#aa;
+	foreach  (@idx) 
+	{
+		print OUT2 $outputLines{$contig}[$_];
+		print OUT2 "\n"
+	}
+}
+
 #close OUT;
 close OUT2;
 close OUT3;
+
+
+## sort by genotyping results
 
 
 #foreach  ( @lepmap2Markers) 
@@ -515,6 +574,62 @@ close OUT3;
 #
 #close OUT5;
 
+sub merge_indv
+{
+	my $merginglist = shift;
+	my @merginglist = @{$merginglist};
+	my $firstmember = $merginglist[0];
+
+	my $gtdata = shift;
+	my @gtdata = @{$gtdata};
+
+	my %gt2counts = ();
+	LOOPTTT:foreach my $i (@merginglist) 
+	{
+		my ($g, $d)  = split ":",  $gtdata[$i];
+		if ($d eq "0") 
+		{
+			next LOOPTTT;
+		}
+		
+		my @gts = split /\//, $g;
+		my @ds = split ",", $d;
+		if (@ds ==1) 
+		{
+			$gt2counts{$gts[0]} += $ds[0];
+		}
+		else
+		{
+			foreach my $gt (@gts) 
+			{
+				my $count = shift @ds;
+				$gt2counts{$gt} += $count;
+			} 
+		}
+
+	}
+	#$,="\t";
+	#print %gt2counts, "\n";
+	my @mergedgts = reverse sort {$gt2counts{$a}<=>$gt2counts{$b}} keys %gt2counts;
+	if (@mergedgts == 0) 
+	{
+		return;
+	}
+	elsif (@mergedgts ==1) 
+	{
+		my $a = $mergedgts[0];
+		my $c = $gt2counts{$a};
+		${$gtdata}[$firstmember] = "$a/$a:$c";
+	}
+	else
+	{
+		my $a = $mergedgts[0];
+		my $b = $mergedgts[1];
+		my $ac = $gt2counts{$a};
+		my $bc = $gt2counts{$b};
+		${$gtdata}[$firstmember] = "$a/$b:$ac,$bc";
+	}
+}
 
 sub printhelp
 {
@@ -522,9 +637,11 @@ sub printhelp
 	print "Options:\n";
 	print "-g: Input genotype file, the hap_genotype file from amplicon.py\n";
 	print "-f: mininum allele frequency\n";
-	print "-b: define blank samples index, if there are several separated by comma. First sample index is 1.\n";
+	print "-b: define skipped samples index, if there are several separated by comma. First sample index is 1.\n";
 	print "-m: maternal parent index, if there are several separated by comma. First sample index is 1.\n";
 	print "-p: paternal parent index, if there are several separated by comma. First sample is 1.\n";
+	print "-j: maternal parent name, if not set, use the first marternal individual name.\n";
+	print "-k: paternal parent name, if not set, use the first paternal individual name.\n";
 	print "-n: family name\n";
 	print "-l: provide a table to convert haplotype marker to chromosome name and position. A tab-delimited table with 3 columns: hapmarker, chr, pos\n";
 	print "-x: force using top 4 alleles even if parents are present\n";
