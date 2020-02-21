@@ -219,15 +219,15 @@ def main():
 
             sampleName = re.sub("\s", "", fieldArray[0])
             plateWell = re.sub("\s", "", fieldArray[1])
-            if (sampleName in fileMerged):
-                if ((args.mergeDuplicate == 1) and (fileMerged[sampleName] == "done")):
-                    continue
-                elif (args.mergeDuplicate == 1):
-                    fieldArray[2] = fileMerged[sampleName][0]
-                    fieldArray[3] = fileMerged[sampleName][1]
-                    fileMerged[sampleName] = "done"
-                else:
-                    sampleName = sampleName + "__" + plateWell
+
+            if (args.mergeDuplicate == 0):
+                sampleName = sampleName + "__" + plateWell
+            elif (fileMerged[sampleName] == "done"):
+                continue
+            else:
+                fieldArray[2] = fileMerged[sampleName][0]
+                fieldArray[3] = fileMerged[sampleName][1]
+                fileMerged[sampleName] = "done"
 
             if (sampleName in sampleList):
                 continue
