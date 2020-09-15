@@ -76,6 +76,7 @@ def main():
     parser.add_argument('-j','--job',type=int,required=False,default=8,help='Number of simultaneous jobs. Default:8')
     parser.add_argument('-t','--thread',type=int,required=False,default=1,help='Number of threads per job. Default:1')
     parser.add_argument('-c','--minSamplePerHaplotype',type=int,required=False,default=10,help='Minimum number of samples per haplotypes. Default:10')
+    parser.add_argument('-q','--minReadsPerHaplotype',type=int,required=False,default=0,help='Minimum number of reads across all samples per haplotypes. Default:0')
     parser.add_argument('-n','--maxHaplotypePerSample',type=int,required=False,default=20,help='Maximum number of unique haplotypes per sample in the first pass, no matter what the ploidy level of the individual. Default:20')
     parser.add_argument('-m','--maxHaplotypeInPopulation',type=int,required=False,default=1000,help='Maximum number of haplotypes per marker in the population. Default:1000')
     parser.add_argument('-a','--maf',type=float,required=False,default=0.01,help='Minimum minor allele frequency Default:0.01')
@@ -471,6 +472,8 @@ def getTagList():
             #duelCount: each seqstr has two counts stored as a list: by r by sample and by reads
             for (seqStr, duelCount) in sorted(tagToReadCount[marker].items(), key=lambda x: x[1][0], reverse=True):
                 if (len(seqStr) < markerMinLen):
+                    continue
+                if (duelCount[1] <args.minReadsPerHaplotype):
                     continue
                 if ((duelCount[0] >=args.minSamplePerHaplotype) and (tagId < args.maxHaplotypeInPopulation)):
                     tagId +=1
