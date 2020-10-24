@@ -81,7 +81,7 @@ def main():
     parser.add_argument('-m','--maxHaplotypeInPopulation',type=int,required=False,default=1000,help='Maximum number of haplotypes per marker in the population. Default:1000')
     parser.add_argument('-a','--maf',type=float,required=False,default=0.01,help='Minimum minor allele frequency Default:0.01')
     parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=50,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50')
-    parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=1,help='Whether to merge the duplicate samples. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:1')
+    parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=0,help='Whether to merge samples with same name. If two samples with same name and same plate_well, they will always be merged. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:0')
     parser.add_argument('-e','--PCRErrorCorr',type=int,required=False,default=0,help='Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction')
     parser.add_argument('-p','--ploidy',type=int,required=False,default=2,help='Ploidy, default 2')
     parser.add_argument('-r','--maxAlleleReadCountRatio',type=int,required=False,default=20,help='Maximum read count ratio between the two alleles in each sample, default 20')
@@ -171,6 +171,8 @@ def main():
             fieldArray = line.split(sep="\t")
             sampleName = re.sub("\s", "", fieldArray[0])
             plateWell = re.sub("\s", "", fieldArray[1])
+            if (args.mergeDuplicate == 0):
+                sampleName = sampleName + "__" + plateWell
             if (sampleName in checkSampleDup):
                 checkSampleDup[sampleName].append((fieldArray[2], fieldArray[3]))
             else:
@@ -181,31 +183,28 @@ def main():
 
     for sampleName, files in checkSampleDup.items():
         if (len(files)>1):
-            if (args.mergeDuplicate == 1):
-                ### merge
-                file1List = ""
-                file2List = ""
-                for fff in files:
-                    file1List+= " " + fff[0]
-                    file2List+= " " + fff[1]
-                
-                attachGZ = ""
-                if (".gz" in file1List):
-                    attachGZ = ".gz"
+            ### merge
+            file1List = ""
+            file2List = ""
+            for fff in files:
+                file1List+= " " + fff[0]
+                file2List+= " " + fff[1]
+            
+            attachGZ = ""
+            if (".gz" in file1List):
+                attachGZ = ".gz"
 
-                ## execute merging only if 1 not skipped
-                if ("1" not in args.skip):
-                    mergeCmd1 = f"cat {file1List} > {sampleName}.merged.R1.fastq{attachGZ}"
-                    mergeCmd2 = f"cat {file2List} > {sampleName}.merged.R2.fastq{attachGZ}"
+            ## execute merging only if 1 not skipped
+            if ("1" not in args.skip):
+                mergeCmd1 = f"cat {file1List} > {sampleName}.merged.R1.fastq{attachGZ}"
+                mergeCmd2 = f"cat {file2List} > {sampleName}.merged.R2.fastq{attachGZ}"
 
-                    logging.debug(f"Merging: {mergeCmd1}")
-                    logging.debug(f"Merging: {mergeCmd2}")
-                    os.system(mergeCmd1)
-                    os.system(mergeCmd2)
+                logging.debug(f"Merging: {mergeCmd1}")
+                logging.debug(f"Merging: {mergeCmd2}")
+                os.system(mergeCmd1)
+                os.system(mergeCmd2)
 
-                fileMerged[sampleName] = [f"{sampleName}.merged.R1.fastq{attachGZ}", f"{sampleName}.merged.R2.fastq{attachGZ}"]
-            else:
-                fileMerged[sampleName] = "duplicated"
+            fileMerged[sampleName] = [f"{sampleName}.merged.R1.fastq{attachGZ}", f"{sampleName}.merged.R2.fastq{attachGZ}"]
 
 
     with open(args.sample, 'r') as fhs:
@@ -223,16 +222,15 @@ def main():
 
             if (args.mergeDuplicate == 0):
                 sampleName = sampleName + "__" + plateWell
-            else:
-                if (sampleName not in fileMerged):
-                    pass
+
+
+            if (sampleName in fileMerged):
+                if (fileMerged[sampleName] == "done"):
+                    continue
                 else:
-                    if (fileMerged[sampleName] == "done"):
-                        continue
-                    else:
-                        fieldArray[2] = fileMerged[sampleName][0]
-                        fieldArray[3] = fileMerged[sampleName][1]
-                        fileMerged[sampleName] = "done"
+                    fieldArray[2] = fileMerged[sampleName][0]
+                    fieldArray[3] = fileMerged[sampleName][1]
+                    fileMerged[sampleName] = "done"
 
             if (sampleName in sampleList):
                 continue
