@@ -167,7 +167,6 @@ def main():
                         alleleCounts[a] =1
         if (totalGametes==0):
             print(f"{markerName}: no data")
-            continue
 
         sortedAlleles = sorted(alleleCounts.items(), key=lambda kv: kv[1], reverse=True)
         newHapStr = "";
@@ -181,7 +180,6 @@ def main():
         
         if (newTotalGametes == 0):
             print(f"{markerName}: no used alleles")
-            continue  
 
         # re-calculate allele frq based on used allelels
         for alleleCount in sortedAlleles:
