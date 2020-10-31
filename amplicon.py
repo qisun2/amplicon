@@ -89,6 +89,7 @@ def main():
     parser.add_argument('-y','--slurmBatchSize',type=int,required=False,default=10,help='Slurm job size. Number of samples per slurm job. default 10')
     parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.1,help='Mismatch rate between pcr primer and reads, default 0.1')
     parser.add_argument('-g','--tagFasta',type=str,required=False,help='tag fasta file, sequence tag name should be >markerNam#alleleID, e.g. >rh_chr9_9574105#31')
+    parser.add_argument('-w','--novelTag',type=int,required=False,default=0, help='call novel alleles not defined in tagFasta. must be combined with -g. 0: no novel alleles; 1 : novel allele marked as n#; 2: novel allelele with ID continued from existing allele series.')
 
 
     if sys.version_info[0] < 3:
@@ -111,6 +112,13 @@ def main():
         parser.print_usage()
         print(f"Error: Key file {args.key} does not exist!")
         sys.exit()
+
+
+    if ((args.novelTag >0) and (args.tagFasta == None)):
+        print(f"Error: the --novelTag parameter must be used together with --tagFasta parameter!")
+        sys.exit()
+
+
 
     primerFile = f"{args.output}/primer.fa"
     tagBySampleDir = f"{args.output}/tagBySampleDir"
@@ -269,6 +277,7 @@ def main():
 
 def splitByPrimer():
     print("Run splitByPrimer ")
+    logging.debug(sampleToFileList)
     if (args.slurmcluster == ""):
         print("on single node ... ")
 #        print ("Checking bbmerge.sh: ")
@@ -413,12 +422,19 @@ def getTagList():
     print ("Collapsing tags across samples")
     
     markerTagToID =defaultdict(dict)
+    markerLastAlleleID = {}
     useExistTag = False
     if (args.tagFasta != None):
         useExistTag = True
         for seq_record in SeqIO.parse(args.tagFasta, "fasta"):
             (marker, alleleID) = seq_record.id.split("#") 
             markerTagToID[marker][str(seq_record.seq)] = alleleID
+
+            tmpID = int(alleleID)
+            if ((marker in markerLastAlleleID) and (tmpID> markerLastAlleleID[marker])):
+                markerLastAlleleID[marker]= tmpID
+            else:
+                markerLastAlleleID[marker]= tmpID
 
 
     #collapse tags across samples
@@ -467,6 +483,12 @@ def getTagList():
             modOutFile = f"{modDir}/{marker}"
             tagTableFh = open(firstPassFile, "w")
             correctErrorFileList.append((firstPassFile, modOutFile))
+
+            if (args.novelTag == 1):
+                tagId = 100000
+            elif ((args.novelTag == 2) and (marker in markerLastAlleleID)):
+                tagId = markerLastAlleleID[marker]
+
             #duelCount: each seqstr has two counts stored as a list: by r by sample and by reads
             for (seqStr, duelCount) in sorted(tagToReadCount[marker].items(), key=lambda x: x[1][0], reverse=True):
                 if (len(seqStr) < markerMinLen):
@@ -474,15 +496,20 @@ def getTagList():
                 if (duelCount[1] <args.minReadsPerHaplotype):
                     continue
                 if ((duelCount[0] >=args.minSamplePerHaplotype) and (tagId < args.maxHaplotypeInPopulation)):
-                    tagId +=1
+                    
                     if (useExistTag):
                         if seqStr in markerTagToID[marker]:
                             myTagID= markerTagToID[marker][seqStr]
-                            tagTableFh.write(f"{myTagID}\t{seqStr}\t{duelCount[0]}\t{duelCount[1]}\n")
+                        elif (args.novelTag >0):
+                            tagId = tagId +1
+                            myTagID= tagId
                         else:
                             continue
                     else:
-                        tagTableFh.write(f"{tagId}\t{seqStr}\t{duelCount[0]}\t{duelCount[1]}\n");                    
+                        tagId = tagId +1
+                        myTagID= tagId
+                    tagTableFh.write(f"{myTagID}\t{seqStr}\t{duelCount[0]}\t{duelCount[1]}\n");      
+                    
             tagTableFh.close()
     tagToReadCount.clear()
     
