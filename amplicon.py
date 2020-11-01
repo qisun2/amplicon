@@ -489,14 +489,18 @@ def getTagList():
             elif ((args.novelTag == 2) and (marker in markerLastAlleleID)):
                 tagId = markerLastAlleleID[marker]
 
+            tagCount =0 
             #duelCount: each seqstr has two counts stored as a list: by r by sample and by reads
             for (seqStr, duelCount) in sorted(tagToReadCount[marker].items(), key=lambda x: x[1][0], reverse=True):
+                
                 if (len(seqStr) < markerMinLen):
                     continue
+                
                 if (duelCount[1] <args.minReadsPerHaplotype):
                     continue
-                if ((duelCount[0] >=args.minSamplePerHaplotype) and (tagId < args.maxHaplotypeInPopulation)):
-                    
+
+                if ((duelCount[0] >=args.minSamplePerHaplotype) and (tagCount < args.maxHaplotypeInPopulation)):
+                    tagCount += 1
                     if (useExistTag):
                         if seqStr in markerTagToID[marker]:
                             myTagID= markerTagToID[marker][seqStr]
