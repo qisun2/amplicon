@@ -625,16 +625,17 @@ def callHapGenotypes():
 
 
         if (total==0):
-            continue
+            pass  ## used to be continue 
 
+        if (total>0):         
+            for aid, copyNumber in alleleFrq.items():
+                frq = copyNumber/total
+                if (frq > args.maf):
+                    keptAlleles[aid] = 1
 
-        for aid, copyNumber in alleleFrq.items():
-            frq = copyNumber/total
-            if (frq > args.maf):
-                keptAlleles[aid] = 1
 
         if (len(keptAlleles) == 0):
-            continue
+            pass  ## used to be continue 
 
         # write marker output, only use keptAlleles
         gtline = ""
@@ -683,11 +684,15 @@ def callHapGenotypes():
 
         frqline = ""
         if (total==0):
-            continue
+            pass #continue
         alleleFrqSorted = sorted(alleleFrq.items(), key=lambda x: x[1], reverse=True)
         for aaa in alleleFrqSorted:
             (aid, copyNumber) = aaa
-            frq = copyNumber/total
+
+            if (total>0):
+                frq = copyNumber/total
+            else:
+                frq =0
             frqline += f"{aid}({frq:4.2f});"
             markerToFinalAllele[marker].append(aid)
         gtfh.write (f"{marker}\t{frqline}{gtline}\n")
@@ -716,14 +721,17 @@ def callHapGenotypes():
     for marker in outputMarkerList:
         if marker in markerToFinalAllele:
             alleleToSeq = {}
+            if (not os.path.isfile(f"{markerDir}/{marker}.firstpass") ):
+                continue
             with open(f"{markerDir}/{marker}.firstpass", 'r') as ms:
                 for line in ms:
                     [tagId, seqStr, sampleNumber, copyNumber]  = line.split()
                     alleleToSeq[tagId] =seqStr
-            topAllele= markerToFinalAllele[marker][0]
-            topFh.write(f">{marker}\n{alleleToSeq[topAllele]}\n")
-            for allele in markerToFinalAllele[marker]:
-                fastaFh.write(f">{marker}#{allele}\n{alleleToSeq[allele]}\n")
+            if (markerToFinalAllele[marker]):
+                topAllele= markerToFinalAllele[marker][0]
+                topFh.write(f">{marker}\n{alleleToSeq[topAllele]}\n")
+                for allele in markerToFinalAllele[marker]:
+                    fastaFh.write(f">{marker}#{allele}\n{alleleToSeq[allele]}\n")
 
     fastaFh.close()
 
