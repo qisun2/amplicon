@@ -1,11 +1,11 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 use strict;
 use warnings;
 use Getopt::Std;
 my %opts;
 
 ##v2
-unless (getopts("g:b:m:p:j:k:f:n:l:xh", \%opts))
+unless (getopts("g:b:m:p:j:k:f:n:l:d:xh", \%opts))
 {
         printhelp();
         print "Error: some options are not set properly!\n";
@@ -46,6 +46,12 @@ my $maf = 0;
 if ($opts{"f"}) 
 {
 	$maf = $opts{"f"};
+}
+
+my $mindepth = 0;
+if ($opts{"d"}) 
+{
+	$mindepth = $opts{"d"};
 }
 
 
@@ -496,6 +502,10 @@ LOOP1:while (<IN>)
 			}
 		}
 		$ADstr =~ s/,$//;
+
+		if ($tDP<$mindepth) {
+			$outgt = "./.";
+		}
 		$outline .= "\t$outgt:$ADstr:$tDP";
 		#print OUT2 "\t$outgt:$ADstr:$tDP";
 		push  @{$lepmap2[$sampleIndexInLM2]}, $outgt_lm2;
@@ -645,5 +655,6 @@ sub printhelp
 	print "-n: family name\n";
 	print "-l: provide a table to convert haplotype marker to chromosome name and position. A tab-delimited table with 3 columns: hapmarker, chr, pos\n";
 	print "-x: force using top 4 alleles even if parents are present\n";
+	print "-d: minimum genotype read depth. genotype below this depth will be converted to unknown\n";
 	print "-h: help menu.\n";
 }
