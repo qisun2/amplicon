@@ -18,7 +18,6 @@ import glob
 
 from Bio import AlignIO
 from Bio.Align import AlignInfo
-from Bio.Alphabet import IUPAC, Gapped
 from Bio import SeqIO
 
 from collections import defaultdict
@@ -759,7 +758,6 @@ def checkApp(checkCommand):
 
 ########### the following code is for PCR error correction ##############################################
 
-alphabet = Gapped(IUPAC.ambiguous_dna)
 
 def align_muscle(inputfa):
 
