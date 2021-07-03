@@ -30,9 +30,9 @@ dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, minOverlap=20, maxMismatch=1, verbose=TRUE)
 
 seqtab <- makeSequenceTable(mergers)
-uniquesToFasta(getUniques(seqtab), fout=file.path(path, paste(marker, "uniqueSeqs.fasta", sep="")), ids=paste0("Seq", seq(length(getUniques(seqtab)))))
+uniquesToFasta(getUniques(seqtab), fout=file.path(path, paste(marker, ".uniqueSeqs.fasta", sep="")), ids=paste0("Seq", seq(length(getUniques(seqtab)))))
 write.csv(t(seqtab), file.path(path, paste(marker, ".seqtab.csv", sep="")))
-save.image(file=file.path(path,paste(marker, "uniqueSeqs.Dada2.RData", sep="")))
+save.image(file=file.path(path,paste(marker, ".uniqueSeqs.Dada2.RData", sep="")))
 
 
 
