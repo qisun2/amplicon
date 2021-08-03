@@ -22,6 +22,9 @@ filtRs <- file.path(path,  paste0(sample.names, "_R_filt.fastq.gz"))
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, minLen=100,
                      compress=TRUE, multithread=TRUE, matchIDs=TRUE, verbose=TRUE)
 
+filtFs <- filtFs[file.exists(filtFs)]
+filtRs <- filtRs[file.exists(filtRs)]
+
 errF <- learnErrors(filtFs, multithread=TRUE)
 errR <- learnErrors(filtRs, multithread=TRUE)
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
