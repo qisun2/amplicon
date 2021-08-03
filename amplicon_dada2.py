@@ -358,17 +358,18 @@ def finalProcess(markerPath, sampleList):
 
         ## filter .seqtab.csv file
         csvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.csv"
-        modCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.mod2.csv"
+        modCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.mod.csv"
 
         dataMatrix= pd.read_csv(csvFile, header=0, index_col=0)
+
+        #modify column index
         samplesInFile = [item.replace("_F_filt.fastq.gz","") for item in dataMatrix.columns]
         dataMatrix.columns = samplesInFile
 
-        missingSamples = set(sampleList) - set(samplesInFile)
-        for s in missingSamples:
-            dataMatrix[s] = 0
+        dataMatrix = dataMatrix.loc[acceptedHaplotypeSeqs]
+
+        dataMatrix = dataMatrix.reindex(columns=sampleList, fill_value=0)
         
-        dataMatrix = dataMatrix.loc[acceptedHaplotypeSeqs].sort_index(axis=1)
         dataMatrix.to_csv(modCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
         
         return 1 
