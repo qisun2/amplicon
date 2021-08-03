@@ -15,7 +15,8 @@ import multiprocessing
 import re
 import traceback
 import glob
-from numpy import genfromtxt
+import pandas as pd
+import csv
 
 from Bio import AlignIO
 from Bio.Align import AlignInfo
@@ -61,7 +62,7 @@ def main():
 
 
     # Optional arguments
-    parser.add_argument('-i','--skip',type=str,required=False,default="",help='Skip steps. e.g. "-i 1" to skip steps 1. the steps are: 1. split reads by primers; 2. run dada2.R script')
+    parser.add_argument('-i','--skip',type=str,required=False,default="",help='Skip steps. e.g. "-i 1" to skip steps 1. the steps are: 1. split reads by primers; 2. run dada2.R script; 3. final process')
     parser.add_argument('-j','--job',type=int,required=False,default=8,help='Number of simultaneous jobs. Default:8')
     parser.add_argument('-t','--thread',type=int,required=False,default=1,help='Number of threads per job. Default:1')
     parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=50,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50')
@@ -138,30 +139,12 @@ def main():
         fhk.close()
     primerfh.close()
 
-    # process reference sequence file
+    # check reference sequence file exist if parameter set
     if (args.refSeq != ""):
         if (not os.path.isfile(args.refSeq)):
             parser.print_usage()
             print(f"Error: Reference sequence fasta file {args.refSeq} does not exist!")
-            sys.exit()
-        
-        # process reference sequence file
-        refseqExist = set()
-        for record in SeqIO.parse(args.refSeq, "fasta"):
-            markerName = record.id
-
-            if (markerName in markerList):
-                refseqExist.add(markerName)
-                wsh = open(f"{args.output}/{markerName}/refseq.fas", "w")
-                SeqIO.write(record, wsh, "fasta")
-                wsh.close()
-                cmd = f"makeblastdb -in {args.output}/{markerName}/refseq.fas -dbtype nucl"
-                returned_value = subprocess.call(cmd, shell=True)
-
-        for m in markerList:
-            if m not in refseqExist:
-                print(f"Error: Reference sequence fasta file {args.refSeq} does not contain reference sequence for marker {m}!")
-                sys.exit()    
+            sys.exit()  
 
     #process sample file, currently, only paired end reads are supported
     ## first check and merge duplicate samples
@@ -260,18 +243,42 @@ def main():
     if ("2" not in args.skip):
         logging.info("Step 2: run dada2")
         for markerName in markerList:
-            markerDirList.append((markerName, sampleList))
+            markerDirList.append((markerName,))
 
         pool = multiprocessing.Pool(processes= args.job)
         
         pool.starmap(runDada, markerDirList)
         pool.close()
 
+    if ("3" not in args.skip):
+        logging.info("Step 3: final process")
 
-    # convert to LepMap output
-    #logging.info("Step 4: output LepMap file")
-    #toLepMap()
+        # process reference sequence file
+        if (args.refSeq != ""):            
+            refseqExist = set()
+            for record in SeqIO.parse(args.refSeq, "fasta"):
+                markerName = record.id
 
+                if (markerName in markerList):
+                    refseqExist.add(markerName)
+                    wsh = open(f"{args.output}/{markerName}/refseq.fas", "w")
+                    SeqIO.write(record, wsh, "fasta")
+                    wsh.close()
+                    cmd = f"makeblastdb -in {args.output}/{markerName}/refseq.fas -dbtype nucl"
+                    returned_value = subprocess.call(cmd, shell=True)
+
+            for m in markerList:
+                if m not in refseqExist:
+                    print(f"Error: Reference sequence fasta file {args.refSeq} does not contain reference sequence for marker {m}!")
+                    sys.exit()
+
+        for markerName in markerList:
+            markerDirList.append((markerName, sampleList))
+
+        pool = multiprocessing.Pool(processes= args.job)
+        
+        pool.starmap(finalProcess, markerDirList)
+        pool.close()
 
 
 def splitByCutadapt(sampleName, file1, file2):
@@ -305,11 +312,20 @@ def splitByCutadapt(sampleName, file1, file2):
         raise e
 
 
-def runDada(markerPath, sampleList):
+def runDada(markerPath):
     try:
         cmd = f"{dadaRscript} {args.output}/{markerPath}"
         returned_value = subprocess.call(cmd, shell=True)
+        return 1 
+    except Exception as e:
+        print(f'Caught exception in job {markerPath} ')
+        traceback.print_exc()
+        print()
+        raise e
 
+
+def finalProcess(markerPath, sampleList):
+    try:
         if (args.refSeq != ""):
             acceptedHaplotype= set()
             acceptedHaplotypeSeqs= set()
@@ -342,56 +358,19 @@ def runDada(markerPath, sampleList):
 
         ## filter .seqtab.csv file
         csvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.csv"
-        modCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.mod.csv"
-        firstRow = True
-        sampleForMarker = []
-        alleleForMarker = []
-        dataMatrix = {}
-        with open (csvFile, "r") as CFH:
-            for line in CFH:
-                dataFields = line.rstrip().split(sep=",")
-                allele = dataFields.pop(0).replace("\"", "")
-                if firstRow:
-                    for s in dataFields:
-                        s = s.replace("\"", "")
-                        s = s.replace("_F_filt.fastq.gz", "")
-                        sampleForMarker.append(s)
-                    firstRow = False
-                else:
-                    alleleForMarker.append(allele)
-                    dataMatrix[allele] = {}
-                    for i in range(0, len(sampleForMarker)):
-                        dataMatrix[allele][sampleForMarker[i]] = dataFields[i]
-        CFH.close()
+        modCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.mod2.csv"
 
-        WH = open (modCsvFile, "w")
-        WH.write("Sample\t")
-        WH.write("\t".join(sampleList))
-        WH.write("\n")
+        dataMatrix= pd.read_csv(csvFile, header=0, index_col=0)
+        samplesInFile = [item.replace("_F_filt.fastq.gz","") for item in dataMatrix.columns]
+        dataMatrix.columns = samplesInFile
 
-        for allele in alleleForMarker:
-            if ((args.refSeq == "") or (allele in acceptedHaplotypeSeqs)):
-                WH.write(allele)
-                for s in sampleList:
-                    WH.write("\t")
-                    if s in dataMatrix[allele]:
-                        WH.write(dataMatrix[allele][s])
-                    else:
-                        WH.write("0")
-                WH.write("\n")
-        WH.close()
+        missingSamples = set(sampleList) - set(samplesInFile)
+        for s in missingSamples:
+            dataMatrix[s] = 0
         
-        return 1 
-    except Exception as e:
-        print(f'Caught exception in job {markerPath} ')
-        traceback.print_exc()
-        print()
-        raise e
-
-def runBlast(markerPath):
-    try:
-        cmd = f"makeblastdb -in {args.output}/{markerPath}/{markerPath}uniqueSeqs.fasta -dbtype nucl"
-        returned_value = subprocess.call(cmd, shell=True)
+        dataMatrix = dataMatrix.loc[acceptedHaplotypeSeqs].sort_index(axis=1)
+        dataMatrix.to_csv(modCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+        
         return 1 
     except Exception as e:
         print(f'Caught exception in job {markerPath} ')
