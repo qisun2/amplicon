@@ -78,11 +78,11 @@ def main():
 
     args=parser.parse_args()
 
-
     sampleList = []
     sampleToFileList = []
     markerList= []
     markerDirList = []
+
 
     if (not os.path.isfile(args.sample)):
         parser.print_usage()
@@ -273,7 +273,7 @@ def main():
                     sys.exit()
 
         for markerName in markerList:
-            markerDirList.append((markerName, sampleList))
+            markerDirList.append((markerName,))
 
         pool = multiprocessing.Pool(processes= args.job)
         
@@ -324,7 +324,7 @@ def runDada(markerPath):
         raise e
 
 
-def finalProcess(markerPath, sampleList):
+def finalProcess(markerPath):
     try:
         if (args.refSeq != ""):
             acceptedHaplotype= set()
