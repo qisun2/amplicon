@@ -277,6 +277,16 @@ def main():
         pool.starmap(finalProcess, markerDirList)
         pool.close()
 
+    if ("4" not in args.skip):
+        logging.info("Step 4: delete intermediate")
+        cmd = f"rm {args.output}/*/*fastq.gz"
+        returned_value = subprocess.call(cmd, shell=True)
+        cmd = f"rm {args.output}/*/*.fastq"
+        returned_value = subprocess.call(cmd, shell=True)
+        cmd = f"rm {args.output}/*/*.RData"
+        returned_value = subprocess.call(cmd, shell=True)
+        cmd = f"rm {args.output}/*/refseq.fas.n*"
+        returned_value = subprocess.call(cmd, shell=True)
 
 def splitByCutadapt(sampleName, file1, file2):
     try:
