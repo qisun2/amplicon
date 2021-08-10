@@ -62,7 +62,7 @@ def main():
 
 
     # Optional arguments
-    parser.add_argument('-i','--skip',type=str,required=False,default="",help='Skip steps. e.g. "-i 1" to skip steps 1. the steps are: 1. split reads by primers; 2. run dada2.R script; 3. final process')
+    parser.add_argument('-i','--skip',type=str,required=False,default="",help='Skip steps. e.g. "-i 1" to skip steps 1. the steps are: 1. split reads by primers; 2. run dada2.R script; 3. final process; 4. delete intermediate files')
     parser.add_argument('-j','--job',type=int,required=False,default=8,help='Number of simultaneous jobs. Default:8')
     parser.add_argument('-t','--thread',type=int,required=False,default=1,help='Number of threads per job. Default:1')
     parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=50,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50')
