@@ -236,19 +236,15 @@ def main():
     if ("1" not in args.skip):
         logging.info("Step 1: splitByPrimer")
         pool = multiprocessing.Pool(processes= args.job)
-        pool.starmap(splitByCutadapt, sampleToFileList)
+        pool.starmap(splitByCutadapt, sampleToFileList, chunksize=20)
         pool.close()
 
     # get sequence tag list across population
     if ("2" not in args.skip):
         logging.info("Step 2: run dada2")
         for markerName in markerList:
-            markerDirList.append((markerName,))
+            runDada(markerName)
 
-        pool = multiprocessing.Pool(processes= args.job)
-        
-        pool.starmap(runDada, markerDirList)
-        pool.close()
 
     if ("3" not in args.skip):
         logging.info("Step 3: final process")
@@ -271,7 +267,8 @@ def main():
                 if m not in refseqExist:
                     print(f"Error: Reference sequence fasta file {args.refSeq} does not contain reference sequence for marker {m}!")
                     sys.exit()
-
+        
+        markerDirList = []
         for markerName in markerList:
             markerDirList.append((markerName,))
 
