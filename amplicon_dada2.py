@@ -67,9 +67,9 @@ def main():
     parser.add_argument('-t','--thread',type=int,required=False,default=1,help='Number of threads per job. Default:1')
     parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=50,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50')
     parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=0,help='Whether to merge samples with same name. If two samples with same name and same plate_well, they will always be merged. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:0')
-    parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.1,help='Mismatch rate between pcr primer and reads, default 0.1')
+    parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.15,help='Mismatch rate between pcr primer and reads, default 0.1')
     parser.add_argument('-r','--refSeq',type=str,required=False,default="",help='Reference sequence for each marker in fasta format')
-    parser.add_argument('-e','--evalue',type=float,required=False,default=1e-3,help='Blast to reference sequence evalue cutoff')
+    parser.add_argument('-e','--evalue',type=float,required=False,default=1e-5,help='Blast to reference sequence evalue cutoff')
 
 
 
@@ -281,12 +281,7 @@ def main():
         logging.info("Step 4: delete intermediate")
         cmd = f"rm {args.output}/*/*fastq.gz"
         returned_value = subprocess.call(cmd, shell=True)
-        cmd = f"rm {args.output}/*/*.fastq"
-        returned_value = subprocess.call(cmd, shell=True)
-        cmd = f"rm {args.output}/*/*.RData"
-        returned_value = subprocess.call(cmd, shell=True)
-        cmd = f"rm {args.output}/*/refseq.fas.n*"
-        returned_value = subprocess.call(cmd, shell=True)
+
 
 def splitByCutadapt(sampleName, file1, file2):
     try:
@@ -295,8 +290,9 @@ def splitByCutadapt(sampleName, file1, file2):
             os.mkdir(sampleDir)
 
         #run cutadapt to demultiplexing by primers
-        cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --discard-untrimmed -g file:{primerFile} -o {sampleDir}/{{name}}_R1.fastq -p {sampleDir}/{{name}}_R2.fastq {file1} {file2} "
+        cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --discard-untrimmed -a file:{primerFile} -o {sampleDir}/{{name}}_R1.fastq -p {sampleDir}/{{name}}_R2.fastq {file1} {file2} "
         returned_value = subprocess.call(cmd, shell=True)
+        logging.info(f"the command is {cmd}")
         logging.info(f"demultiplexing {sampleName} done: {returned_value}")
 
 
@@ -343,7 +339,7 @@ def finalProcess(markerPath):
 
 
             if (os.path.isfile(fastaFile)):
-                cmd = f"blastn -query {fastaFile} -db {args.output}/{markerPath}/refseq.fas  -dust no -outfmt \"6 std qcovs\"  -out {blastResult}"
+                cmd = f"blastn -query {fastaFile} -db {args.output}/{markerPath}/refseq.fas  -task \"blastn-short\" -outfmt \"6 std qcovs\"  -out {blastResult}"
                 returned_value = subprocess.call(cmd, shell=True)
 
                 with open (blastResult, "r") as BFH:
