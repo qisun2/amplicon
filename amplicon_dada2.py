@@ -70,7 +70,7 @@ def main():
     parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=0,help='Whether to merge samples with same name. If two samples with same name and same plate_well, they will always be merged. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:0')
     parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.15,help='Mismatch rate between pcr primer and reads, default 0.1')
     parser.add_argument('-r','--refSeq',type=str,required=False,default="",help='Reference sequence for each marker in fasta format')
-    parser.add_argument('-e','--evalue',type=float,required=False,default=1e-5,help='Blast to reference sequence evalue cutoff')
+    parser.add_argument('-e','--evalue',type=float,required=False,default=1e-2,help='Blast to reference sequence evalue cutoff')
 
 
 
@@ -343,7 +343,12 @@ def runDada(markerPath):
 def finalProcess(markerPath):
     try:
         if (args.refSeq != ""):
-            acceptedHaplotype= set()
+            BLAST5prime = set()
+            BLAST3prime = set()
+            seq2ID = {}
+            acceptedIds = []
+
+
             acceptedHaplotypeSeqs= set()
 
             fastaFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.fasta"
@@ -352,22 +357,24 @@ def finalProcess(markerPath):
 
 
             if (os.path.isfile(fastaFile)):
-                cmd = f"blastn -query {fastaFile} -db {args.output}/{markerPath}/refseq.fas  -task \"blastn-short\" -outfmt \"6 std qcovs\"  -out {blastResult}"
+                cmd = f"blastn -query {fastaFile} -db {args.output}/{markerPath}/refseq.fas -evalue {args.evalue}  -task \"blastn-short\" -outfmt \"6 std qlen\"  -out {blastResult}"
                 returned_value = subprocess.call(cmd, shell=True)
 
                 with open (blastResult, "r") as BFH:
                     for line in BFH:
                         line = line.rstrip()
-                        qseqid, sseqid, pident, length, mismatch, gapopen, qstart, qend, sstart, send, evalue, bitscore, qcov= line.split(sep="\t")
-                        evalue =float(evalue)
-                        if (evalue< args.evalue):
-                            acceptedHaplotype.add(qseqid)
+                        qseqid, sseqid, pident, length, mismatch, gapopen, qstart, qend, sstart, send, evalue, bitscore, qlen= line.split(sep="\t")
+                        if (int(qstart)<= 5):
+                            BLAST5prime.add(qseqid)
+                        if (int(qlen) - int(qend)) < 5:
+                            BLAST3prime.add(qseqid)
                         
                 acceptedRecords = []
                 for record in SeqIO.parse(fastaFile, "fasta"):
-                    if (record.id in acceptedHaplotype):
-                        acceptedHaplotypeSeqs.add(str(record.seq))
-                        acceptedRecords.append(record)
+                    seq2ID[str(record.seq)] = record.id
+                    if (record.id in BLAST5prime and record.id in BLAST3prime):
+                        acceptedIds.append(record.id)
+                        acceptedRecords.append(record)             
                 wsh = open(fastaFilteredFile, "w")
                 SeqIO.write(acceptedRecords, wsh, "fasta")
                 wsh.close()
@@ -375,16 +382,24 @@ def finalProcess(markerPath):
         ## filter .seqtab.csv file
         csvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.csv"
         modCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.mod.csv"
+        oriCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.ori.csv"
 
         dataMatrix= pd.read_csv(csvFile, header=0, index_col=0)
 
+        #replace row label to seq id
+        dataMatrix = dataMatrix.rename(index=seq2ID)
+        
         #modify column index
         samplesInFile = [item.replace("_F_filt.fastq.gz","") for item in dataMatrix.columns]
         dataMatrix.columns = samplesInFile
 
-        dataMatrix = dataMatrix.loc[acceptedHaplotypeSeqs]
+
+        dataMatrix.to_csv(oriCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+
+        dataMatrix = dataMatrix.loc[acceptedIds]
 
         dataMatrix = dataMatrix.reindex(columns=sampleList, fill_value=0)
+
         
         dataMatrix.to_csv(modCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
         
