@@ -48,7 +48,8 @@ def main():
     global sampleList
     global sampleToFileList
     global markerList
-    global primerFile
+    global primerFileF
+    global primerFileR
     global tagBySampleDir
     global readCountMatrixFile
 
@@ -98,7 +99,8 @@ def main():
 
 
 
-    primerFile = f"{args.output}/primer.fa"
+    primerFileF = f"{args.output}/primerF.fa"
+    primerFileR = f"{args.output}/primerR.fa"
     tagBySampleDir = f"{args.output}/tagBySampleDir"
     readCountMatrixFile = f"{args.output}/markerToSampleReadCountMatrix"
 
@@ -116,7 +118,8 @@ def main():
     logging.debug(f"Command: {commandLine}")
 
     # Process the key file, and prepare linked adapter as required by cutadapt
-    primerfh = open(primerFile, "w")
+    primerfhF = open(primerFileF, "w")
+    primerfhR = open(primerFileR, "w")
     with open(args.key, 'r') as fhk:
         for line in fhk:
             if (not re.search("\w", line)):
@@ -130,14 +133,15 @@ def main():
             markerList.append(markerName);
             primer1 = re.sub("\W", "", fieldArray[1])
             primer2 = re.sub("\W", "", fieldArray[2])
-            primer2 = revcom(primer2);
-            primerfh.write(f">{markerName}\n^{primer1}...{primer2}\n")
+            primerfhF.write(f">{markerName}\n^{primer1}\n")
+            primerfhR.write(f">{markerName}\n^{primer2}\n")
 
             markerDir = f"{args.output}/{markerName}"
             if (not os.path.exists(markerDir)):
                 os.mkdir(markerDir)
         fhk.close()
-    primerfh.close()
+    primerfhF.close()
+    primerfhR.close()
 
     # check reference sequence file exist if parameter set
     if (args.refSeq != ""):
@@ -243,7 +247,12 @@ def main():
     if ("2" not in args.skip):
         logging.info("Step 2: run dada2")
         for markerName in markerList:
-            runDada(markerName)
+            logging.info (f"start dada2 on marker {markerName}")
+            returnValue= runDada(markerName)
+            logging.info (f"return dada run value for  {markerName} is {returnValue}")
+            if (returnValue !=0):
+                logging.info (f"Rerun the marker {markerName}")
+                runDada(markerName)
 
 
     if ("3" not in args.skip):
@@ -281,6 +290,9 @@ def main():
         logging.info("Step 4: delete intermediate")
         cmd = f"rm {args.output}/*/*fastq.gz"
         returned_value = subprocess.call(cmd, shell=True)
+        cmd = f"rm {args.output}/*/*.RData"
+        returned_value = subprocess.call(cmd, shell=True)
+
 
 
 def splitByCutadapt(sampleName, file1, file2):
@@ -290,7 +302,7 @@ def splitByCutadapt(sampleName, file1, file2):
             os.mkdir(sampleDir)
 
         #run cutadapt to demultiplexing by primers
-        cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --discard-untrimmed -a file:{primerFile} -o {sampleDir}/{{name}}_R1.fastq -p {sampleDir}/{{name}}_R2.fastq {file1} {file2} "
+        cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --discard-untrimmed -g file:{primerFileF} -G file:{primerFileR} -o {sampleDir}/{{name1}}_{{name2}}_R1.fastq -p {sampleDir}/{{name1}}_{{name2}}_R2.fastq {file1} {file2} "
         returned_value = subprocess.call(cmd, shell=True)
         logging.info(f"the command is {cmd}")
         logging.info(f"demultiplexing {sampleName} done: {returned_value}")
@@ -298,9 +310,9 @@ def splitByCutadapt(sampleName, file1, file2):
 
         # move splitted file to corresponding marker directory
         for markerName in markerList:
-            if (os.path.exists(f"{sampleDir}/{markerName}_R1.fastq")):
-                cmd1 = f"mv {sampleDir}/{markerName}_R1.fastq {args.output}/{markerName}/{sampleName}_R1.fastq"
-                cmd2 = f"mv {sampleDir}/{markerName}_R2.fastq {args.output}/{markerName}/{sampleName}_R2.fastq"
+            if (os.path.exists(f"{sampleDir}/{markerName}_{markerName}_R1.fastq")):
+                cmd1 = f"mv {sampleDir}/{markerName}_{markerName}_R1.fastq {args.output}/{markerName}/{sampleName}_R1.fastq"
+                cmd2 = f"mv {sampleDir}/{markerName}_{markerName}_R2.fastq {args.output}/{markerName}/{sampleName}_R2.fastq"
 
                 subprocess.call(cmd1, shell=True)
                 subprocess.call(cmd2, shell=True)
@@ -316,15 +328,16 @@ def splitByCutadapt(sampleName, file1, file2):
 
 
 def runDada(markerPath):
+    returned_value =-99
     try:
         cmd = f"{dadaRscript} {args.output}/{markerPath}"
         returned_value = subprocess.call(cmd, shell=True)
-        return 1 
     except Exception as e:
         print(f'Caught exception in job {markerPath} ')
         traceback.print_exc()
         print()
         raise e
+    return returned_value
 
 
 def finalProcess(markerPath):
