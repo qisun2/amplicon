@@ -17,7 +17,6 @@ import traceback
 import glob
 import pandas as pd
 import csv
-import swalign
 
 from Bio import AlignIO
 from Bio.Align import AlignInfo
@@ -53,9 +52,6 @@ def main():
     global primerFileR
     global tagBySampleDir
     global readCountMatrixFile
-    global sw
-    global refseq_5p25nt_dict
-    global refseq_3p25nt_dict
 
 
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
@@ -263,32 +259,32 @@ def main():
         logging.info("Step 3: final process")
 
         # process reference sequence file
-        if (args.refSeq != ""):
-            match = 2
-            mismatch = -1
-            scoring = swalign.NucleotideScoringMatrix(match, mismatch)
-            sw = swalign.LocalAlignment(scoring)
-
+        if (args.refSeq != ""):            
             refseqExist = set()
-            markerDirList = []
-
             for record in SeqIO.parse(args.refSeq, "fasta"):
                 markerName = record.id
-                refseqExist.add(markerName)
-                seqStr = str(record.seq)
-                seqLen = len(seqStr)
-                refseq_5p25nt = seqStr[0:25]
-                refseq_3p25nt = seqStr[seqLen-25:seqLen]
-                markerDirList.append((markerName,refseq_5p25nt, refseq_3p25nt))
-  
+
+                if (markerName in markerList):
+                    refseqExist.add(markerName)
+                    wsh = open(f"{args.output}/{markerName}/refseq.fas", "w")
+                    SeqIO.write(record, wsh, "fasta")
+                    wsh.close()
+                    cmd = f"makeblastdb -in {args.output}/{markerName}/refseq.fas -dbtype nucl"
+                    returned_value = subprocess.call(cmd, shell=True)
+
             for m in markerList:
                 if m not in refseqExist:
                     print(f"Error: Reference sequence fasta file {args.refSeq} does not contain reference sequence for marker {m}!")
                     sys.exit()
+        
+        markerDirList = []
+        for markerName in markerList:
+            markerDirList.append((markerName,))
 
-            pool = multiprocessing.Pool(processes= args.job)
-            pool.starmap(finalProcess, markerDirList)
-            pool.close()
+        pool = multiprocessing.Pool(processes= args.job)
+        
+        pool.starmap(finalProcess, markerDirList)
+        pool.close()
 
     if ("4" not in args.skip):
         logging.info("Step 4: delete intermediate")
@@ -344,38 +340,44 @@ def runDada(markerPath):
     return returned_value
 
 
-def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt):
-
+def finalProcess(markerPath):
     try:
-        BLAST5prime = set()
-        BLAST3prime = set()
-        seq2ID = {}
-        acceptedIds = []
-        acceptedRecords= []
-
-        fastaFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.fasta"
-        fastaFilteredFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.filtered.fasta"
-        blastResult = f"{args.output}/{markerPath}/blastresults"
+        if (args.refSeq != ""):
+            BLAST5prime = set()
+            BLAST3prime = set()
+            seq2ID = {}
+            acceptedIds = []
 
 
-        if (os.path.isfile(fastaFile)):
-            for record in SeqIO.parse(fastaFile, "fasta"):
-                seq2ID[str(record.seq)] = record.id
-                markerName = record.id
-                seqStr = str(record.seq)
-                seqLen = len(seqStr)
-                query_5p25nt = seqStr[0:25]
-                query_3p25nt = seqStr[seqLen-25:seqLen]
-                alignment1 = sw.align(refseq_5p25nt, query_5p25nt)
-                alignment2 = sw.align(refseq_3p25nt, query_3p25nt)
+            acceptedHaplotypeSeqs= set()
 
-                if (alignment1.matches>18 and alignment2.matches>18):
-                    acceptedIds.append(record.id)
-                    acceptedRecords.append(record)
-    
-            wsh = open(fastaFilteredFile, "w")
-            SeqIO.write(acceptedRecords, wsh, "fasta")
-            wsh.close()
+            fastaFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.fasta"
+            fastaFilteredFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.filtered.fasta"
+            blastResult = f"{args.output}/{markerPath}/blastresults"
+
+
+            if (os.path.isfile(fastaFile)):
+                cmd = f"blastn -query {fastaFile} -db {args.output}/{markerPath}/refseq.fas -evalue {args.evalue}  -task \"blastn-short\" -outfmt \"6 std qlen\"  -out {blastResult}"
+                returned_value = subprocess.call(cmd, shell=True)
+
+                with open (blastResult, "r") as BFH:
+                    for line in BFH:
+                        line = line.rstrip()
+                        qseqid, sseqid, pident, length, mismatch, gapopen, qstart, qend, sstart, send, evalue, bitscore, qlen= line.split(sep="\t")
+                        if (int(qstart)<= 5):
+                            BLAST5prime.add(qseqid)
+                        if (int(qlen) - int(qend)) < 5:
+                            BLAST3prime.add(qseqid)
+                        
+                acceptedRecords = []
+                for record in SeqIO.parse(fastaFile, "fasta"):
+                    seq2ID[str(record.seq)] = record.id
+                    if (record.id in BLAST5prime and record.id in BLAST3prime):
+                        acceptedIds.append(record.id)
+                        acceptedRecords.append(record)             
+                wsh = open(fastaFilteredFile, "w")
+                SeqIO.write(acceptedRecords, wsh, "fasta")
+                wsh.close()
 
         ## filter .seqtab.csv file
         csvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.csv"
