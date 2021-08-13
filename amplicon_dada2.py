@@ -73,7 +73,7 @@ def main():
     parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=50,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50')
     parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=0,help='Whether to merge samples with same name. If two samples with same name and same plate_well, they will always be merged. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:0')
     parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.15,help='Mismatch rate between pcr primer and reads, default 0.1')
-    parser.add_argument('-r','--refSeq',type=str,required=False,default="",help='Reference sequence for each marker in fasta format')
+    parser.add_argument('-r','--refSeq',type=str,required=False,default="",help='Reference sequence for each marker in fasta format. If the value is set as 1, the first allele from dada2 is used as refseq')
     parser.add_argument('-e','--evalue',type=float,required=False,default=1e-2,help='Blast to reference sequence evalue cutoff')
 
 
@@ -149,7 +149,7 @@ def main():
 
     # check reference sequence file exist if parameter set
     if (args.refSeq != ""):
-        if (not os.path.isfile(args.refSeq)):
+        if (args.refSeq != "1") and (not os.path.isfile(args.refSeq)):
             parser.print_usage()
             print(f"Error: Reference sequence fasta file {args.refSeq} does not exist!")
             sys.exit()  
@@ -264,6 +264,24 @@ def main():
 
         # process reference sequence file
         if (args.refSeq != ""):
+
+            # create a refseq if refseq input value as 1
+            refseqFile = args.refSeq
+            if (args.refSeq == "1"):
+                refseqFile = f"{args.output}/refseq_from_seq1.fasta"
+                refseqList = []
+                for marker in markerList:
+                    fastaFile = f"{args.output}/{marker}/{marker}.uniqueSeqs.fasta"
+                    firstSeq = list(SeqIO.parse(fastaFile, "fasta"))[0]
+                    firstSeq.id = marker
+                    firstSeq.name = marker
+                    firstSeq.description = ""
+                    refseqList.append(firstSeq)
+
+                wsh = open(refseqFile, "w")
+                SeqIO.write(refseqList, wsh, "fasta")
+                wsh.close()
+
             match = 2
             mismatch = -1
             scoring = swalign.NucleotideScoringMatrix(match, mismatch)
@@ -272,7 +290,7 @@ def main():
             refseqExist = set()
             markerDirList = []
 
-            for record in SeqIO.parse(args.refSeq, "fasta"):
+            for record in SeqIO.parse(refseqFile, "fasta"):
                 markerName = record.id
                 refseqExist.add(markerName)
                 seqStr = str(record.seq)
@@ -283,7 +301,7 @@ def main():
   
             for m in markerList:
                 if m not in refseqExist:
-                    print(f"Error: Reference sequence fasta file {args.refSeq} does not contain reference sequence for marker {m}!")
+                    print(f"Error: Reference sequence fasta file {refseqFile} does not contain reference sequence for marker {m}!")
                     sys.exit()
 
             pool = multiprocessing.Pool(processes= args.job)
@@ -352,9 +370,11 @@ def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt):
         seq2ID = {}
         acceptedIds = []
         acceptedRecords= []
+        removedRecords= []
 
         fastaFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.fasta"
         fastaFilteredFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.filtered.fasta"
+        fastaRemovedFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.removed.fasta"
         blastResult = f"{args.output}/{markerPath}/blastresults"
 
 
@@ -372,35 +392,35 @@ def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt):
                 if (alignment1.matches>18 and alignment2.matches>18):
                     acceptedIds.append(record.id)
                     acceptedRecords.append(record)
+                else:
+                    removedRecords.append(record)
     
             wsh = open(fastaFilteredFile, "w")
+            wsh2 = open(fastaRemovedFile, "w")
             SeqIO.write(acceptedRecords, wsh, "fasta")
+            SeqIO.write(removedRecords, wsh2, "fasta")
             wsh.close()
+            wsh2.close()
 
         ## filter .seqtab.csv file
         csvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.csv"
         modCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.mod.csv"
         oriCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.ori.csv"
 
-        dataMatrix= pd.read_csv(csvFile, header=0, index_col=0)
-
-        #replace row label to seq id
-        dataMatrix = dataMatrix.rename(index=seq2ID)
-        
-        #modify column index
+        dataMatrix= pd.read_csv(csvFile, header=0)
         samplesInFile = [item.replace("_F_filt.fastq.gz","") for item in dataMatrix.columns]
+        samplesInFile[0] = "alleleSequence"
         dataMatrix.columns = samplesInFile
+        dataMatrix['Id']= dataMatrix["alleleSequence"].map(seq2ID)
 
+        newColumnName = sampleList
+        newColumnName[:0] = ["Id", "alleleSequence"]
 
-        dataMatrix.to_csv(oriCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+        oriMatrix_redexed = dataMatrix.reindex(columns=newColumnName, fill_value=0)  
+        oriMatrix_redexed.to_csv(oriCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC, index=False)
 
-        dataMatrix = dataMatrix.loc[acceptedIds]
-
-        dataMatrix = dataMatrix.reindex(columns=sampleList, fill_value=0)
-
-        
-        dataMatrix.to_csv(modCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
-        
+        filteredDataMatrix = oriMatrix_redexed.loc[dataMatrix['Id'].isin(acceptedIds)]
+        filteredDataMatrix.to_csv(modCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC, index=False)    
         return 1 
     except Exception as e:
         print(f'Caught exception in job {markerPath} ')
