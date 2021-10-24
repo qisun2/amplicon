@@ -39,7 +39,8 @@ from collections import defaultdict
 
 cutadaptCMD = "cutadapt"
 dadaRscript = "dada2.R"
-
+blastCmd = "blastn"
+makeblastdbCmd = "makeblastdb"
 
 def main():
 
@@ -73,6 +74,8 @@ def main():
     parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=50,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50')
     parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=0,help='Whether to merge samples with same name. If two samples with same name and same plate_well, they will always be merged. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:0')
     parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.15,help='Mismatch rate between pcr primer and reads, default 0.1')
+    parser.add_argument('-f','--filter',type=str,required=False,default="1",help='Filter alleles by reference sequence. 1. No filter; 2 Filter by smith-waterman alignment to reference; 3. Filter by BLAST. default 1')
+    parser.add_argument('-x','--alnpct',type=float,required=False,default=0.7,help='percent identity of alignment')
     parser.add_argument('-r','--refSeq',type=str,required=False,default="",help='Reference sequence for each marker in fasta format. If the value is set as 1, the first allele from dada2 is used as refseq')
     parser.add_argument('-e','--evalue',type=float,required=False,default=1e-2,help='Blast to reference sequence evalue cutoff')
 
@@ -148,10 +151,22 @@ def main():
     primerfhR.close()
 
     # check reference sequence file exist if parameter set
-    if (args.refSeq != ""):
-        if (args.refSeq != "1") and (not os.path.isfile(args.refSeq)):
+    if (args.filter not in ["1", "2", "3"]):
+        print (f"Error: The --filter option must be a value of 1, 2 or 3")
+        parser.print_usage()
+        sys.exit()  
+
+
+    if (args.filter == "1"):
+        pass
+    else:
+        if (args.refSeq == ""):
+            print(f"Error: Reference sequence fasta file {args.refSeq} are not set!")
             parser.print_usage()
+            sys.exit()  
+        elif (args.refSeq != "1") and (not os.path.isfile(args.refSeq)):
             print(f"Error: Reference sequence fasta file {args.refSeq} does not exist!")
+            parser.print_usage()
             sys.exit()  
 
     #process sample file, currently, only paired end reads are supported
@@ -263,8 +278,7 @@ def main():
         logging.info("Step 3: final process")
 
         # process reference sequence file
-        if (args.refSeq != ""):
-
+        if (args.filter != "1"):
             # create a refseq if refseq input value as 1
             refseqFile = args.refSeq
             if (args.refSeq == "1"):
@@ -297,7 +311,7 @@ def main():
                 seqLen = len(seqStr)
                 refseq_5p25nt = seqStr[0:25]
                 refseq_3p25nt = seqStr[seqLen-25:seqLen]
-                markerDirList.append((markerName,refseq_5p25nt, refseq_3p25nt))
+                markerDirList.append((markerName,refseq_5p25nt, refseq_3p25nt, args.filter, args.alnpct))
   
             for m in markerList:
                 if m not in refseqExist:
@@ -362,7 +376,7 @@ def runDada(markerPath):
     return returned_value
 
 
-def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt):
+def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt, alignmethod, alignpct):
 
     try:
         BLAST5prime = set()
@@ -377,30 +391,72 @@ def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt):
         fastaRemovedFile = f"{args.output}/{markerPath}/{markerPath}.uniqueSeqs.removed.fasta"
         blastResult = f"{args.output}/{markerPath}/blastresults"
 
-
         if (os.path.isfile(fastaFile)):
-            for record in SeqIO.parse(fastaFile, "fasta"):
-                seq2ID[str(record.seq)] = record.id
-                markerName = record.id
-                seqStr = str(record.seq)
-                seqLen = len(seqStr)
-                query_5p25nt = seqStr[0:25]
-                query_3p25nt = seqStr[seqLen-25:seqLen]
-                alignment1 = sw.align(refseq_5p25nt, query_5p25nt)
-                alignment2 = sw.align(refseq_3p25nt, query_3p25nt)
+            if (alignmethod == "2"):
+                matchedNT = alignpct*25 
+                for record in SeqIO.parse(fastaFile, "fasta"):
+                    seq2ID[str(record.seq)] = record.id
+                    markerName = record.id
+                    seqStr = str(record.seq)
+                    seqLen = len(seqStr)
+                    query_5p25nt = seqStr[0:25]
+                    query_3p25nt = seqStr[seqLen-25:seqLen]
+                    alignment1 = sw.align(refseq_5p25nt, query_5p25nt)
+                    alignment2 = sw.align(refseq_3p25nt, query_3p25nt)
+                    if (alignment1.matches>matchedNT and alignment2.matches>matchedNT):
+                        acceptedIds.append(record.id)
+                        acceptedRecords.append(record)
+                    else:
+                        removedRecords.append(record)        
+                wsh = open(fastaFilteredFile, "w")
+                wsh2 = open(fastaRemovedFile, "w")
+                SeqIO.write(acceptedRecords, wsh, "fasta")
+                SeqIO.write(removedRecords, wsh2, "fasta")
+                wsh.close()
+                wsh2.close()
+            if (alignmethod == "3"):
+                ref5Query = f"{args.output}/{markerPath}/{markerPath}.ref5.fasta"
+                ref3Query = f"{args.output}/{markerPath}/{markerPath}.ref3.fasta"
+                blastOut5 = f"{args.output}/{markerPath}/{markerPath}.ref5.blast"
+                blastOut3 = f"{args.output}/{markerPath}/{markerPath}.ref3.blast"
+                w1 = open(ref5Query, "w")
+                w1.write(">ref5\n$refseq_5p25nt\n")
+                w1.close()
+                w1 = open(ref3Query, "w")
+                w1.write(">ref5\n$refseq_3p25nt\n")
+                w1.close()
+                cmd = f"{makeblastdbCmd} -in {fastaFile} -dbtype nucl"
+                subprocess.call(cmd, shell=True)
+                cmd = f"{blastCmd} -query {ref5Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut5}"
+                subprocess.call(cmd, shell=True)
+                cmd = f"{blastCmd} -query {ref3Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut3}"
+                subprocess.call(cmd, shell=True)
 
-                if (alignment1.matches>18 and alignment2.matches>18):
-                    acceptedIds.append(record.id)
-                    acceptedRecords.append(record)
-                else:
-                    removedRecords.append(record)
-    
-            wsh = open(fastaFilteredFile, "w")
-            wsh2 = open(fastaRemovedFile, "w")
-            SeqIO.write(acceptedRecords, wsh, "fasta")
-            SeqIO.write(removedRecords, wsh2, "fasta")
-            wsh.close()
-            wsh2.close()
+                hits5 = []
+                hits3 = []
+                with open (blastOut5, "r") as BLASTIN:
+                    for line in BLASTIN:
+                        dataFields = line.split("\t")
+                        if (float(dataFields[2])/100 >= alignpct ):
+                            hits5.append(dataFields[1])
+                with open (blastOut3, "r") as BLASTIN:
+                    for line in BLASTIN:
+                        dataFields = line.split("\t")
+                        if (float(dataFields[2])/100 >= alignpct ):
+                            hits3.append(dataFields[1])
+                acceptedIds = [value for value in hits5 if value in hits3]
+
+                for record in SeqIO.parse(fastaFile, "fasta"):
+                    if(record.id in acceptedIds):
+                        acceptedRecords.append(record)
+                    else:
+                        removedRecords.append(record)                   
+                wsh = open(fastaFilteredFile, "w")
+                wsh2 = open(fastaRemovedFile, "w")
+                SeqIO.write(acceptedRecords, wsh, "fasta")
+                SeqIO.write(removedRecords, wsh2, "fasta")
+                wsh.close()
+                wsh2.close()
 
         ## filter .seqtab.csv file
         csvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.csv"
