@@ -302,7 +302,7 @@ my %markernameToPos;
 my %outputLines = ();
 my %outputLinesPos = ();
 
-my $unknownPosMarker_index = 0
+my $unknownPosMarker_index = 0;
 LOOP1:while (<IN>) 
 {
 	s/\s+$//;
@@ -333,7 +333,7 @@ LOOP1:while (<IN>)
 	$markernameToPos{$locus}= $pos;
 	unless ($pos) 
 	{
-		$contig = "unknown"
+		$contig = "unknown";
 		$unknownPosMarker_index  = $unknownPosMarker_index  + 100;
 		$pos = $unknownPosMarker_index ;
 	}
