@@ -302,6 +302,7 @@ my %markernameToPos;
 my %outputLines = ();
 my %outputLinesPos = ();
 
+my $unknownPosMarker_index = 0
 LOOP1:while (<IN>) 
 {
 	s/\s+$//;
@@ -332,7 +333,9 @@ LOOP1:while (<IN>)
 	$markernameToPos{$locus}= $pos;
 	unless ($pos) 
 	{
-		$pos = "";
+		$contig = "unknown"
+		$unknownPosMarker_index  = $unknownPosMarker_index  + 100;
+		$pos = $unknownPosMarker_index ;
 	}
 	$alleles =~s/;\s*$//;
 	my @alleles = split ";", $alleles;
