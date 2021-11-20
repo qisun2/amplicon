@@ -5,7 +5,7 @@ use Getopt::Std;
 my %opts;
 
 ##v2
-unless (getopts("g:b:m:p:j:k:f:n:l:d:xh", \%opts))
+unless (getopts("a:g:b:m:p:j:k:f:n:l:d:xh", \%opts))
 {
         printhelp();
         print "Error: some options are not set properly!\n";
@@ -17,10 +17,10 @@ if (defined $opts{"h"})
 	 printhelp();
 	 exit;
 }
-my $forcetop4 = 0;
+my $forcetopn = 0;
 if (defined $opts{"x"}) 
 {
-	 $forcetop4 = 1;
+	 $forcetopn = 1;
 }
 
 my $familyName = "F";
@@ -46,6 +46,33 @@ my $maf = 0;
 if ($opts{"f"}) 
 {
 	$maf = $opts{"f"};
+}
+
+my $maxAlleles = 4;
+my @set_aindex = (0,1,2,3);
+my @set_aNT = qw(A C G T);
+my %set_aindexToNt = (0=>"A", 1=>"C", 2=>"G", 3=>"T");
+my @possibleAlleles = ();
+for (my $i=1; $i<=50; $i++) 
+{
+	push @possibleAlleles, "A"x$i;
+	push @possibleAlleles, "C"x$i;
+	push @possibleAlleles, "G"x$i;
+	push @possibleAlleles, "T"x$i;
+}
+
+if ($opts{"a"}) 
+{
+	$maxAlleles = $opts{"a"};
+	@set_aindex = ();
+	@set_aNT = ();
+	%set_aindexToNt =();
+	for (my $i=0; $i<$maxAlleles; $i++) 
+	{
+		push @set_aindex, $i;
+		push @set_aNT, $possibleAlleles[$i];
+		$set_aindexToNt{$i} = $possibleAlleles[$i];
+	}
 }
 
 my $mindepth = 0;
@@ -125,8 +152,8 @@ if ($opts{"l"})
 
 
 ##if both mom and dad available use alleles of mom and dad
-my $usealleles = "top4";
-if (($hasmom>=0) && ($hasdad>=0) && ($forcetop4==0)) 
+my $usealleles = "topn";
+if (($hasmom>=0) && ($hasdad>=0) && ($forcetopn==0)) 
 {
 	$usealleles = "parents";
 }
@@ -333,7 +360,6 @@ LOOP1:while (<IN>)
 	$markernameToPos{$locus}= $pos;
 	unless ($pos) 
 	{
-		$contig = "unknown";
 		$unknownPosMarker_index  = $unknownPosMarker_index  + 100;
 		$pos = $unknownPosMarker_index ;
 	}
@@ -343,9 +369,9 @@ LOOP1:while (<IN>)
 	my @usedAllelesSorted = ();
 	my @usedAllelesSortedNT = ();
 	my $alleleCount =0;
-	my @aindex = (0,1,2,3);
-	my @aNT = qw(A C G T);
-	my %aindexToNt = (0=>"A", 1=>"C", 2=>"G", 3=>"T");
+	my @aindex = @set_aindex;
+	my @aNT = @set_aNT;
+	my %aindexToNt = %set_aindexToNt;
 
 
 	## merging
@@ -357,11 +383,11 @@ LOOP1:while (<IN>)
 
 
 
-	if ($usealleles eq "top4") 
+	if ($usealleles eq "topn") 
 	{
 		LOOP2:foreach  (@alleles) 
 		{
-			last LOOP2 if ($alleleCount>=4);
+			last LOOP2 if ($alleleCount>=$maxAlleles);
 			if(/(\d+)\(([0-9.]+)\)/)
 			{
 				my ($a, $f) = ($1, $2);
@@ -410,7 +436,7 @@ LOOP1:while (<IN>)
 
 		LOOPP2:foreach my $a  (@alleles) 
 		{
-			last LOOPP2 if ($alleleCount>=4);
+			last LOOPP2 if ($alleleCount>=$maxAlleles);
 			my $tindex = shift @aindex; 
 			my $t = shift @aNT;
 			$usedHapToVCFAlleleIndex{$a} = $tindex;
@@ -649,6 +675,7 @@ sub printhelp
 	print "Usage: to_lep_map.pl -g inputGTFile -f maf -b <blank samples> -m  <maternal samples> -p <paternal samples> -n familyName\n";
 	print "Options:\n";
 	print "-g: Input genotype file, the hap_genotype file from amplicon.py\n";
+	print "-a: Maximum number of alleles, default 4.\n";
 	print "-f: mininum allele frequency\n";
 	print "-b: define skipped samples index, if there are several separated by comma. First sample index is 1.\n";
 	print "-m: maternal parent index, if there are several separated by comma. First sample index is 1.\n";
@@ -657,7 +684,7 @@ sub printhelp
 	print "-k: paternal parent name, if not set, use the first paternal individual name.\n";
 	print "-n: family name\n";
 	print "-l: provide a table to convert haplotype marker to chromosome name and position. A tab-delimited table with 3 columns: hapmarker, chr, pos\n";
-	print "-x: force using top 4 alleles even if parents are present\n";
+	print "-x: force using top n alleles even if parents are present\n";
 	print "-d: minimum genotype read depth. genotype below this depth will be converted to unknown\n";
 	print "-h: help menu.\n";
 }
