@@ -2,7 +2,7 @@
 
 import logging
 from os import listdir
-from os.path import isfile, join
+from os.path import isfile, join, exists
 import argparse
 from pathlib import Path
 import os
@@ -169,6 +169,18 @@ def main():
             parser.print_usage()
             sys.exit()  
 
+    #validate reference file if exists
+    refseqFile = args.refSeq
+    t = set()
+    if (refseqFile!="") and (os.path.isfile(refseqFile)):
+        for record in SeqIO.parse(refseqFile, "fasta"):
+            t.add(record.id)
+        for m in markerList:
+            if m not in refseqExist:
+                print(f"Error: Reference sequence fasta file {refseqFile} does not contain reference sequence for marker {m}!")
+                sys.exit()
+
+
     #process sample file, currently, only paired end reads are supported
     ## first check and merge duplicate samples
     checkSampleDup = {}
@@ -313,11 +325,6 @@ def main():
                 refseq_3p25nt = seqStr[seqLen-25:seqLen]
                 markerDirList.append((markerName,refseq_5p25nt, refseq_3p25nt, args.filter, args.alnpct))
   
-            for m in markerList:
-                if m not in refseqExist:
-                    print(f"Error: Reference sequence fasta file {refseqFile} does not contain reference sequence for marker {m}!")
-                    sys.exit()
-
             pool = multiprocessing.Pool(processes= args.job)
             pool.starmap(finalProcess, markerDirList)
             pool.close()
@@ -463,21 +470,24 @@ def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt, alignmethod, alignpct
         modCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.mod.csv"
         oriCsvFile = f"{args.output}/{markerPath}/{markerPath}.seqtab.ori.csv"
 
-        dataMatrix= pd.read_csv(csvFile, header=0)
-        samplesInFile = [item.replace("_F_filt.fastq.gz","") for item in dataMatrix.columns]
-        samplesInFile[0] = "alleleSequence"
-        dataMatrix.columns = samplesInFile
-        dataMatrix['Id']= dataMatrix["alleleSequence"].map(seq2ID)
+        if exists(csvFile):
+            dataMatrix= pd.read_csv(csvFile, header=0)
+            samplesInFile = [item.replace("_F_filt.fastq.gz","") for item in dataMatrix.columns]
+            samplesInFile[0] = "alleleSequence"
+            dataMatrix.columns = samplesInFile
+            dataMatrix['Id']= dataMatrix["alleleSequence"].map(seq2ID)
 
-        newColumnName = sampleList
-        newColumnName[:0] = ["Id", "alleleSequence"]
+            newColumnName = sampleList
+            newColumnName[:0] = ["Id", "alleleSequence"]
 
-        oriMatrix_redexed = dataMatrix.reindex(columns=newColumnName, fill_value=0)  
-        oriMatrix_redexed.to_csv(oriCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC, index=False)
+            oriMatrix_redexed = dataMatrix.reindex(columns=newColumnName, fill_value=0)  
+            oriMatrix_redexed.to_csv(oriCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC, index=False)
 
-        filteredDataMatrix = oriMatrix_redexed.loc[dataMatrix['Id'].isin(acceptedIds)]
-        filteredDataMatrix.to_csv(modCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC, index=False)    
-        return 1 
+            filteredDataMatrix = oriMatrix_redexed.loc[dataMatrix['Id'].isin(acceptedIds)]
+            filteredDataMatrix.to_csv(modCsvFile, quotechar='"', quoting=csv.QUOTE_NONNUMERIC, index=False)    
+            return 1
+        else:
+            return -1
     except Exception as e:
         print(f'Caught exception in job {markerPath} ')
         traceback.print_exc()
