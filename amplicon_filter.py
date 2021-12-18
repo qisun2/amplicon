@@ -19,7 +19,15 @@ from collections import defaultdict
 blastCmd = "blastn"
 makeblastdbCmd = "makeblastdb"
 tmpDir = "./"
-refFilterLength = 25
+
+
+
+match = 2
+mismatch = -1
+scoring = swalign.NucleotideScoringMatrix(match, mismatch)
+sw = swalign.LocalAlignment(scoring)
+
+
 def main():
 
     global args
@@ -32,14 +40,17 @@ def main():
 
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
 
+
     # Required arguments
-    parser.add_argument('-a','--alleleFasta',type=str,required=True,help='Allele fasta file. It should be the output file HaplotypeAllele.fasta from amplicon.py.')
+    parser.add_argument('-i','--inputAlleleFasta',type=str,required=True,help='Allele fasta file. It should be the output file HaplotypeAllele.fasta from amplicon.py.')
     parser.add_argument('-r','--refSeq',type=str,required=False,default="",help='Reference sequence for each marker in fasta format. If the value is not set, the first allele (most common allele) is used as refseq')
-    parser.add_argument('-o','--outputFasta',type=str,required=True,help='Output fasta file. It is required')
-    parser.add_argument('-f','--filter',type=str,required=False,default="1",help='Filter alleles by reference sequence. 1. No filter; 2 Filter by smith-waterman alignment to reference; 3. Filter by BLAST. default 1')
+    parser.add_argument('-o','--outputFasta',type=str,required=False,default=f"{tmpDir}/amplicon.kept.fasta", help='Output fasta file. It is required')
+    parser.add_argument('-f','--filter',type=str,required=False,default="2",help='Filter alleles by reference sequence. 1. No filter; 2 Filter by smith-waterman alignment to reference; 3. Filter by BLAST. default 1')
+    parser.add_argument('-s','--flankingSize',type=int,required=False,default=25,help='flanking size used for filtering')
     parser.add_argument('-x','--alnpct',type=float,required=False,default=0.7,help='percent identity of alignment')
     parser.add_argument('-e','--evalue',type=float,required=False,default=1e-2,help='Blast to reference sequence evalue cutoff')
     parser.add_argument('-m','--removed',type=str,required=False,default=f"{tmpDir}/amplicon.removed.fasta",help='removed sequences')
+    parser.add_argument('-t','--tmp',type=str,required=False,default=f"{tmpDir}",help='tmp directory')
 
 
     if sys.version_info[0] < 3:
@@ -55,7 +66,7 @@ def main():
         sys.exit()  
 
     #validate input alleleFasta file
-    alleleFasta = args.alleleFasta
+    alleleFasta = args.inputAlleleFasta
     if (not os.path.isfile(alleleFasta)):
         print(f"Error: Reference sequence fasta file {refseqFile} does not contain reference sequence for marker {m}!")
         sys.exit()
@@ -98,10 +109,10 @@ def main():
         sys.exit()
     elif (args.filter=="2" or args.filter=="3"):
         for markerId in markerList:
-            refSeqStr = str(refSeqs[markerId])
+            refSeqStr = str(refSeqs[markerId].seq)
             seqLen = len(refSeqStr)
-            refSeq_5p25nt = seqStr[0:refFilterLength]
-            refSeq_3p25nt = seqStr[seqLen-refFilterLength:seqLen]
+            refSeq_5p25nt = refSeqStr[0:args.flankingSize]
+            refSeq_3p25nt = refSeqStr[seqLen-args.flankingSize:seqLen]
             if args.filter=="2":
                 filterBySwalign(markerId, refSeq_5p25nt, refSeq_3p25nt)
             else:
@@ -112,7 +123,7 @@ def main():
         sys.exit()
 
     # write to output
-    wh = open(outputFasta, "w")
+    wh = open(args.outputFasta, "w")
     rwh = open(args.removed, "w")
     for markerId in markerList:
         for record in alleleSeqs[markerId]:
@@ -125,22 +136,22 @@ def main():
 
 
 
-def filterBySwalign(markerId, refSeq_5p25nt, refSeq_3p25nt):
-    matchedNT = args.alnpct*refFilterLength
+def filterBySwalign(markerId, refseq_5p25nt, refseq_3p25nt):
+    matchedNT = args.alnpct*args.flankingSize
     alleleRecords = alleleSeqs[markerId]
     for record in alleleRecords:
         matches = re.match("(\\S+)#(\\S+)", record.id)
         seqStr = str(record.seq)
         seqLen = len(seqStr)
-        query_5p25nt = seqStr[0:refFilterLength]
-        query_3p25nt = seqStr[seqLen-refFilterLength:seqLen]
+        query_5p25nt = seqStr[0:args.flankingSize]
+        query_3p25nt = seqStr[seqLen-args.flankingSize:seqLen]
         alignment1 = sw.align(refseq_5p25nt, query_5p25nt)
         alignment2 = sw.align(refseq_3p25nt, query_3p25nt)
         if (alignment1.matches>matchedNT and alignment2.matches>matchedNT):
             acceptedAlleleIds.add(record.id)
        
 
-def filterByBlast(markerId, refSeq_5p25nt, refSeq_3p25nt):
+def filterByBlast(markerId, refseq_5p25nt, refseq_3p25nt):
         ref5Query = f"{tmpDir}/tmp.ref5.fasta"
         ref3Query = f"{tmpDir}/tmp.ref3.fasta"
         blastOut5 = f"{tmpDir}/tmp.ref5.blast"
@@ -171,13 +182,13 @@ def filterByBlast(markerId, refSeq_5p25nt, refSeq_3p25nt):
         with open (blastOut5, "r") as BLASTIN:
             for line in BLASTIN:
                 dataFields = line.split("\t")
-                if (float(dataFields[2])/100 >= alignpct ):
+                if (float(dataFields[2])/100 >= args.alnpct ):
                     hits5.append(dataFields[1])
             BLASTIN.close()
         with open (blastOut3, "r") as BLASTIN:
             for line in BLASTIN:
                 dataFields = line.split("\t")
-                if (float(dataFields[2])/100 >= alignpct ):
+                if (float(dataFields[2])/100 >= args.alnpct ):
                     hits3.append(dataFields[1])
             BLASTIN.close()
 
