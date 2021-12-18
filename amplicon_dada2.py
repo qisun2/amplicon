@@ -434,9 +434,9 @@ def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt, alignmethod, alignpct
                 w1.close()
                 cmd = f"{makeblastdbCmd} -in {fastaFile} -dbtype nucl"
                 subprocess.call(cmd, shell=True)
-                cmd = f"{blastCmd} -query {ref5Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut5} -max_target_seqs 2000"
+                cmd = f"{blastCmd} -query {ref5Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut5} -max_target_seqs 2000 -evalue {evalue}"
                 subprocess.call(cmd, shell=True)
-                cmd = f"{blastCmd} -query {ref3Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut3} -max_target_seqs 2000"
+                cmd = f"{blastCmd} -query {ref3Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut3} -max_target_seqs 2000 -evalue {evalue}"
                 subprocess.call(cmd, shell=True)
 
                 hits5 = []
