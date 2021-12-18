@@ -39,6 +39,7 @@ def main():
     parser.add_argument('-f','--filter',type=str,required=False,default="1",help='Filter alleles by reference sequence. 1. No filter; 2 Filter by smith-waterman alignment to reference; 3. Filter by BLAST. default 1')
     parser.add_argument('-x','--alnpct',type=float,required=False,default=0.7,help='percent identity of alignment')
     parser.add_argument('-e','--evalue',type=float,required=False,default=1e-2,help='Blast to reference sequence evalue cutoff')
+    parser.add_argument('-m','--removed',type=str,required=False,default=f"{tmpDir}/amplicon.removed.fasta",help='removed sequences')
 
 
     if sys.version_info[0] < 3:
@@ -112,11 +113,15 @@ def main():
 
     # write to output
     wh = open(outputFasta, "w")
+    rwh = open(args.removed, "w")
     for markerId in markerList:
         for record in alleleSeqs[markerId]:
             if record.id in acceptedAlleleIds:
                 SeqIO.write(record, wh, "fasta")
+            else:
+                SeqIO.write(record, rwh, "fasta")
     wh.close()
+    rwh.close()
 
 
 
