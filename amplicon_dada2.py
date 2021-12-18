@@ -427,16 +427,16 @@ def finalProcess(markerPath, refseq_5p25nt, refseq_3p25nt, alignmethod, alignpct
                 blastOut5 = f"{args.output}/{markerPath}/{markerPath}.ref5.blast"
                 blastOut3 = f"{args.output}/{markerPath}/{markerPath}.ref3.blast"
                 w1 = open(ref5Query, "w")
-                w1.write(">ref5\n$refseq_5p25nt\n")
+                w1.write(f">ref5\n{refseq_5p25nt}\n")
                 w1.close()
                 w1 = open(ref3Query, "w")
-                w1.write(">ref5\n$refseq_3p25nt\n")
+                w1.write(f">ref3\n{refseq_3p25nt}\n")
                 w1.close()
                 cmd = f"{makeblastdbCmd} -in {fastaFile} -dbtype nucl"
                 subprocess.call(cmd, shell=True)
-                cmd = f"{blastCmd} -query {ref5Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut5}"
+                cmd = f"{blastCmd} -query {ref5Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut5} -max_target_seqs 2000"
                 subprocess.call(cmd, shell=True)
-                cmd = f"{blastCmd} -query {ref3Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut3}"
+                cmd = f"{blastCmd} -query {ref3Query} -db {fastaFile} -task \"blastn-short\" -outfmt 6 -out {blastOut3} -max_target_seqs 2000"
                 subprocess.call(cmd, shell=True)
 
                 hits5 = []
