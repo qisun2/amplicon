@@ -47,6 +47,7 @@ def main():
 
     global args
     global sampleList
+    global doneSamples
     global sampleToFileList
     global markerList
     global primerFile
@@ -89,13 +90,23 @@ def main():
     parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.1,help='Mismatch rate between pcr primer and reads, default 0.1')
     parser.add_argument('-g','--tagFasta',type=str,required=False,help='tag fasta file, sequence tag name should be >markerNam#alleleID, e.g. >rh_chr9_9574105#31')
     parser.add_argument('-w','--novelTag',type=int,required=False,default=0, help='call novel alleles not defined in tagFasta. must be combined with -g. 0: no novel alleles; 1 : novel allele marked as n#; 2: novel allelele with ID continued from existing allele series.')
-
+    parser.add_argument('-u','--restart',type=int,required=False,default=0,help='set to 1 to restart from crashed point in step 1. Default:0')
 
     if sys.version_info[0] < 3:
         raise Exception("This code requires Python 3.")
 
     args=parser.parse_args()
 
+
+    doneSamples = set()
+    if (args.restart == 1):
+        #gather finished samples
+        logFile = args.output + '/run.log'
+        with open (logFile, "r") as RLOG:
+            for line in RLOG:
+                mat = re.search("collapsing contig (.+) done", line)
+                if mat:
+                    doneSamples.add(mat[1])
 
     sampleList = []
     sampleToFileList = []
@@ -170,6 +181,7 @@ def main():
     ## first check and merge duplicate samples
     checkSampleDup = {}
     fileMerged = {}
+    countSampleFile = 0
     with open(args.sample, 'r') as fhs:
         for line in fhs:
             if (not re.search("\w", line)):
@@ -178,6 +190,7 @@ def main():
             fieldArray = line.split(sep="\t")
             sampleName = re.sub("\s", "", fieldArray[0])
             plateWell = re.sub("\s", "", fieldArray[1])
+            countSampleFile +=1
             if (args.mergeDuplicate == 0):
                 sampleName = sampleName + "__" + plateWell
             if (sampleName in checkSampleDup):
@@ -185,7 +198,7 @@ def main():
             else:
                 checkSampleDup[sampleName] = [(fieldArray[2], fieldArray[3])]
         fhs.close()
-
+    print (f"Input sample file sets {countSampleFile}")
     # execute file merging only if step 1 not skipped
 
     for sampleName, files in checkSampleDup.items():
@@ -202,7 +215,7 @@ def main():
                 attachGZ = ".gz"
 
             ## execute merging only if 1 not skipped
-            if ("1" not in args.skip):
+            if ("1" not in args.skip) and (args.restart == 0):
                 mergeCmd1 = f"cat {file1List} > {sampleName}.merged.R1.fastq{attachGZ}"
                 mergeCmd2 = f"cat {file2List} > {sampleName}.merged.R2.fastq{attachGZ}"
 
@@ -212,7 +225,8 @@ def main():
                 os.system(mergeCmd2)
 
             fileMerged[sampleName] = [f"{sampleName}.merged.R1.fastq{attachGZ}", f"{sampleName}.merged.R2.fastq{attachGZ}"]
-
+    dupCount = len(fileMerged)
+    print (f"Merged dup samples {dupCount}")
 
     with open(args.sample, 'r') as fhs:
         for line in fhs:
@@ -275,6 +289,8 @@ def main():
 
 
 def splitByPrimer():
+    countOfSamples = len(sampleToFileList)
+    print(f"Total samples: {countOfSamples}")
     print("Run splitByPrimer ")
     logging.debug(sampleToFileList)
     if (args.slurmcluster == ""):
@@ -285,8 +301,23 @@ def splitByPrimer():
 #        if (not checkApp("cutadapt")):
 #            sys.exit()
 
+
+
         pool = multiprocessing.Pool(processes= args.job)
-        pool.starmap(splitByCutadapt, sampleToFileList)
+
+        if (args.restart == 1):
+            myRemainingList = []
+            countOfSamples = len(doneSamples)
+            print(f"Processed samples from restart point: {countOfSamples}")
+            for sss in sampleToFileList:
+                if sss[0] not in doneSamples:
+                    myRemainingList.append(sss)
+
+            countOfSamples = len(myRemainingList)
+            print(f"Samples needed to be processed: {countOfSamples}")
+            pool.starmap(splitByCutadapt, myRemainingList)
+        else:
+            pool.starmap(splitByCutadapt, sampleToFileList)
         pool.close()
 
 
