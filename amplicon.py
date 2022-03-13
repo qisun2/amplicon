@@ -291,6 +291,7 @@ def main():
 def splitByPrimer():
     countOfSamples = len(sampleToFileList)
     print(f"Total samples: {countOfSamples}")
+    logging.debug(f"Total samples: {countOfSamples}")
     print("Run splitByPrimer ")
     logging.debug(sampleToFileList)
     if (args.slurmcluster == ""):
@@ -309,12 +310,14 @@ def splitByPrimer():
             myRemainingList = []
             countOfSamples = len(doneSamples)
             print(f"Processed samples from restart point: {countOfSamples}")
+            logging.debug(f"Processed samples from restart point: {countOfSamples}")
             for sss in sampleToFileList:
                 if sss[0] not in doneSamples:
                     myRemainingList.append(sss)
 
             countOfSamples = len(myRemainingList)
             print(f"Samples needed to be processed: {countOfSamples}")
+            logging.debug(f"Samples needed to be processed: {countOfSamples}")
             pool.starmap(splitByCutadapt, myRemainingList)
         else:
             pool.starmap(splitByCutadapt, sampleToFileList)
