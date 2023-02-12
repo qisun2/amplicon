@@ -3,8 +3,6 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-from scipy.spatial.distance import pdist
-import allel
 import screed
 from screed import ScreedDB
 
