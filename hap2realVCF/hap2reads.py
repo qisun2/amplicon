@@ -3,13 +3,13 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-import screed
-from screed import ScreedDB
+from Bio import SeqIO
+
 
 class GenotypeDF:
     def __init__(self, hap_df):
         self.dataframe = hap_df
-        self.samples,self.alleles,self.gt, self.depth=self.__parse()
+        self.samples,self.alleles,self.gt=self.__parse()
      
     def __parse(self):
         df=self.dataframe
@@ -17,10 +17,7 @@ class GenotypeDF:
         samples=df.columns.tolist()[2:]
         gt=df[samples].applymap(GenotypeDF.get_gt)
         gt.index=alleles
-        depth=df[samples].applymap(GenotypeDF.get_dp)
-        #depth.index.name = alleles
-        depth.index = alleles
-        return samples, alleles, gt, depth
+        return samples, alleles, gt
 
     def get_gt(x):
         #print(x)
@@ -151,11 +148,9 @@ def makefastq():
     p1 = GenotypeDF(df)
 
     df1=p1.gt
-    df2=p1.depth
     alleles=p1.alleles
 
-    screed.read_fasta_sequences(alleleFasta)
-    fadb = ScreedDB(alleleFasta)
+    fadb = SeqIO.to_dict(SeqIO.parse(alleleFasta, "fasta"))
 
     print (f"There are {len(p1.samples)} in this dataset. Start processing ...")
     index = 0
@@ -165,30 +160,15 @@ def makefastq():
             print (f"processing file {index}")
         oup=open(os.path.join(outDir,"%s.fastq" % s), "w")
         L1=df1.loc[:,s].tolist()
-        L2=df2.loc[:,s].tolist()
-        L3=[]
-        for x in L2:
-            #print(x)
-            if len(x)==1:
-                L3.append([int(x[0]/2),int(x[0]/2)])
-
-            else:
-                L3.append(x)
 
         for x in range(len(L1)):
-            #print(x)
-            #print(L1)
             for y in [0,1]:
-                #if not pd.isna(L1[x]):
-                #print(type( L1[x] ))
                 if not isinstance(L1[x], float):
-                    #print(L1[x])
                     allele = alleles[x] + "#" + str(L1[x][y])
                     if allele in fadb:
-                        seqStr = fadb[allele].sequence
+                        seqStr = fadb[allele].seq
                         seqId=f"{allele}_{y}"
                         qualStr = "I" * len(seqStr)
-                        #seq=">%s_%s\n%s\n" % (allele, str(y), fadb[allele].sequence)
                         oup.write(f"@{seqId}\n{seqStr}\n+\n{qualStr}\n")
                     else:
                         print(f"Error: Allele {allele} does not exist in the allele fasta file. Please verify your input fasta file for allele sequences. It should be the HaplotypeAllele.fasta file from amplicon.py output\n")

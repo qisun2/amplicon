@@ -4,7 +4,7 @@ Convert the amplicon.py output to real VCF.
 
 ##### Dependencies:
 
-- PYTHON modules: screed, pandas
+- PYTHON modules: pandas, Bioython
 - bwa
 - bcftools
 - vcftools (optional, for sample missing data statistics)
