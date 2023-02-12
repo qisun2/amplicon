@@ -190,6 +190,9 @@ def makefastq():
                         qualStr = "I" * len(seqStr)
                         #seq=">%s_%s\n%s\n" % (allele, str(y), fadb[allele].sequence)
                         oup.write(f"@{seqId}\n{seqStr}\n+\n{qualStr}\n")
+                    else:
+                        print(f"Error: Allele {allele} does not exist in the allele fasta file. Please verify your input fasta file for allele sequences. It should be the HaplotypeAllele.fasta file from amplicon.py output\n")
+                        exit
 
         oup.close()
 
