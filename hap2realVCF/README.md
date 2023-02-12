@@ -35,7 +35,7 @@ hap2vcf.sh path_of_readOutputDir full_path_of_mygenome.fasta number_of_parallel_
 
 The output vcf file is unfiltered.vcf. 
 
-If the vcf file is ok, you want to the delete the fastq and directories to save storage space. The bam directory should be named "bam" in current directory
+If the vcf file looks ok, you might want to delete the fastq and bam directories to save storage space. The fastq directory is the output from hap2read.py, and the bam directory is named "bam" and located in current directory.
 
 ##### Step 3: filter the vcf file
 
@@ -65,4 +65,4 @@ bcftools +fill-tags filtered_sites_sample.vcf > final.vcf
 bcftools query -f '%CHROM\t%POS\t%AF\t%NS\n'  final.vcf > maf.stat.txt
 ```
 
-In the maf.stat.txt, the first column is the allele frequency, NS is number of samples with data 
+In the maf.stat.txt, the 3rd column is the allele frequency, 4th column is the number of samples with genotyping data.
