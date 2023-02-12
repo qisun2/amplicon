@@ -29,7 +29,7 @@ Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any dir
   * All fastq.gz files listed in the sample file.  
 
 2. In the data directory, execute this command:  
-amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15  
+amplicon.py -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15  
  * -j 10:  process 10 samples simultaneously. This should not exceed the total number of CPU cores on your computer, and should not exceed 20 even if you have more cores du to IO limitation.  
  * -a 0.15: minimum minor allele frequency  
 
@@ -57,9 +57,12 @@ amplicon.sh -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * -z	Mismatch rate between pcr primer and reads, default 0.1
 
 ### to_lep_map.pl script
-As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a VCF file. There is also a lookup table to show the corresponding haplotype allele for "A" "C" "G" and "T".  
+As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a "fake" VCF file, in which up to 4 haplotype alleles are represented with A C G T codind.  There is a lookup table to show the corresponding haplotype allele sequences for "A" "C" "G" and "T".  
   *  Usage:  to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample -p paternalSample -n familyName  
   *  -b, -m and -p are optional. They should be integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1.
+
+### hap2realVCF tool
+This tool can convert the amplicon.py output into a real VCF file (not like the fake vcf file from to_lep_map.pl script). The SNPs/indels in the vcf file are not phased in haplotypes. See README.md file in the directory how to setup and run this script.
 
 ### slice.py script
 To slice out a family from a big build, prepare a sample name file, with one sample name per line. The sample name should be in the format: plateName_wellName, e.g. vDNAcad794B07_E03
