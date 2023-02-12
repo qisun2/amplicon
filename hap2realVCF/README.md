@@ -11,7 +11,7 @@ Convert the amplicon.py output to real VCF.
 - gnu parallel
 
 ##### Installation
-Use pip to install the required python modules. Download the directory. The hap2reads.py script must be kept in same directory as the MAS_v2 directory. 
+Use pip to install the required python modules. All you need is this python script file.
 
 ##### Step 1: create fastq files for each sample, using two output files from amplicon.py: hap_genotype HaplotypeAllele.fasta. The output fastq files will be created in the directory readOutputDir
 
