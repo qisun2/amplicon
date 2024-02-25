@@ -22,7 +22,7 @@ then
         exit
 fi
 
-if [ -z ${numJobs+x} ];
+if [ -n $numJobs ];
 then
     echo "Parellel jobs number is set to $numJobs.\n"
 else
