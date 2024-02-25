@@ -318,9 +318,9 @@ def splitByPrimer():
             countOfSamples = len(myRemainingList)
             print(f"Samples needed to be processed: {countOfSamples}")
             logging.debug(f"Samples needed to be processed: {countOfSamples}")
-            pool.starmap(splitByCutadapt, myRemainingList)
+            pool.starmap(splitByCutadapt, myRemainingList, chunksize=1)
         else:
-            pool.starmap(splitByCutadapt, sampleToFileList)
+            pool.starmap(splitByCutadapt, sampleToFileList, chunksize=1)
         pool.close()
 
 
@@ -556,7 +556,7 @@ def correctPCRError():
     if (not checkApp("muscle")):
         sys.exit()
     pool = multiprocessing.Pool(processes= args.job)
-    pool.starmap(main_collapse, correctErrorFileList)
+    pool.starmap(main_collapse, correctErrorFileList, chunksize=1)
     pool.close()
     os.system(f"rm {modDir}/*.fa")
     #os.system(f"rm {modDir}/*.aln")
