@@ -32,7 +32,7 @@ fi
 
 mkdir ./bam
 
-ls $fastqDir/*fastq | xargs -I {} basename {} | sed "s/.fastq//" | xargs -I {} echo "bwa mem -t 2 -R \"@RG\tID:{}\tSM:{}\tLB:{}\tPL:ILLUMINA\" $refGenome $fastqDir/{}.fastq | samtools sort -O bam -o bam/{}.bam" > tasks_align
+ls $fastqDir/*fastq | xargs -s 1000 -I {} basename {} | sed "s/.fastq//" | xargs -s 2000 -I {} echo "bwa mem -t 2 -R \"@RG\tID:{}\tSM:{}\tLB:{}\tPL:ILLUMINA\" $refGenome $fastqDir/{}.fastq | samtools sort -O bam -o bam/{}.bam" > tasks_align
 
 parallel -j $numJobs < tasks_align
 
