@@ -27,7 +27,7 @@ Prepare reference genome (bwa indexed genome) :
 bwa index mygenome.fasta
 ```
 
-Create vcf file, input files including: the directory from hap2reads.py, and bwa indexed reference genome. The last parameter is the number of jobs running in parallel. This number is dependent on how many CPU cores on your computer. If not set, default to 4. Each job will use 2 cpu cores. Do not set this number too large. Otherwise you will run into memory problems. 
+Create vcf file, input files including: the directory from hap2reads.py, and bwa indexed reference genome. The last parameter is the number of jobs running in parallel. This number is dependent on how many CPU cores on your computer. If not set, default to 4. Each job will use 2 cpu cores. Do not set this number too large. Otherwise you will run into memory problems. (use hap2vcf_mac.sh if you run on a Mac) 
 
 ```
 hap2vcf.sh path_of_readOutputDir full_path_of_mygenome.fasta number_of_parallel_jobs
