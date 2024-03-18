@@ -13,7 +13,7 @@ def main():
     parser.add_argument('-i','--input',type=str,required=True,help='Input directory, it must be the output directory from the amplicon.py tool.')
     parser.add_argument('-o','--output',type=str,required=True,help='Output directory.')
     parser.add_argument('-f','--familyFile',type=str,required=True,help='Family file. It is a text file, with one individual per line. The individual name must be in format plateName_well.')
-    parser.add_argument('-m','--familyName',type=str,required=True,help='Family name. A string with no space.')
+    parser.add_argument('-m','--familyName',type=str,required=False,help='Family name. A string with no space.')
     parser.add_argument('-a','--alleleFreq',type=float,required=True,help='Minimum allele frequency.')
 
     #global variables
