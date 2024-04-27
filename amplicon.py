@@ -62,6 +62,7 @@ def main():
     global topAlleleFastaFile
     global slurmSampleList
     global slurmBatchFile
+    global inputMode
 
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
 
@@ -91,6 +92,7 @@ def main():
     parser.add_argument('-g','--tagFasta',type=str,required=False,help='tag fasta file, sequence tag name should be >markerNam#alleleID, e.g. >rh_chr9_9574105#31')
     parser.add_argument('-w','--novelTag',type=int,required=False,default=0, help='call novel alleles not defined in tagFasta. must be combined with -g. 0: no novel alleles; 1 : novel allele marked as n#; 2: novel allelele with ID continued from existing allele series.')
     parser.add_argument('-u','--restart',type=int,required=False,default=0,help='set to 1 to restart from crashed point in step 1. Default:0')
+    parser.add_argument('--mode',type=int,required=False,default=1,help='1: paired end fastq.gz file;  2: genome contigs. Default:1')
 
     if sys.version_info[0] < 3:
         raise Exception("This code requires Python 3.")
@@ -141,7 +143,18 @@ def main():
     modDir = f"{args.output}/mod1"   # store data from error correction 1
     slurmBatchFile = f"{args.output}/slurm.sh"
     slurmSampleList = f"{args.output}/slurmSamples"
-
+    
+    inputMode = int(args.mode)
+    if (inputMode == 1):
+        print ("Input data is paired-end amplicon.")
+    elif (inputMode == 2):
+        args.novelTag = 1
+        args.maf = 0
+        args.minSamplePerHaplotype = 1
+        print ("Input data is genome contigs.")
+    else:
+        print ("--mode must be 1 or 2.")
+        sys.exit()
 
     if (not os.path.exists(args.output)):
         os.mkdir(args.output)
@@ -173,99 +186,129 @@ def main():
             primer1 = re.sub("\W", "", fieldArray[1])
             primer2 = re.sub("\W", "", fieldArray[2])
             primer2 = revcom(primer2);
-            primerfh.write(f">{markerName}\n^{primer1}...{primer2}\n")
+            if (inputMode==1):
+                primerfh.write(f">{markerName}\n^{primer1}...{primer2}\n")
+            elif (inputMode==2):
+                primerfh.write(f">{markerName}\n{primer1}...{primer2}\n")
+
         fhk.close()
     primerfh.close()
 
-    #process sample file, currently, only paired end reads are supported
-    ## first check and merge duplicate samples
-    checkSampleDup = {}
-    fileMerged = {}
-    countSampleFile = 0
-    with open(args.sample, 'r') as fhs:
-        for line in fhs:
-            if (not re.search("\w", line)):
-                continue
-            line = line.rstrip()
-            fieldArray = line.split(sep="\t")
-            sampleName = re.sub("\s", "", fieldArray[0])
-            plateWell = re.sub("\s", "", fieldArray[1])
-            countSampleFile +=1
-            if (args.mergeDuplicate == 0):
-                sampleName = sampleName + "__" + plateWell
-            if (sampleName in checkSampleDup):
-                checkSampleDup[sampleName].append((fieldArray[2], fieldArray[3]))
-            else:
-                checkSampleDup[sampleName] = [(fieldArray[2], fieldArray[3])]
-        fhs.close()
-    print (f"Input sample file sets {countSampleFile}")
-    # execute file merging only if step 1 not skipped
-
-    for sampleName, files in checkSampleDup.items():
-        if (len(files)>1):
-            ### merge
-            file1List = ""
-            file2List = ""
-            for fff in files:
-                file1List+= " " + fff[0]
-                file2List+= " " + fff[1]
-            
-            attachGZ = ""
-            if (".gz" in file1List):
-                attachGZ = ".gz"
-
-            ## execute merging only if 1 not skipped
-            if ("1" not in args.skip) and (args.restart == 0):
-                mergeCmd1 = f"cat {file1List} > {sampleName}.merged.R1.fastq{attachGZ}"
-                mergeCmd2 = f"cat {file2List} > {sampleName}.merged.R2.fastq{attachGZ}"
-
-                logging.debug(f"Merging: {mergeCmd1}")
-                logging.debug(f"Merging: {mergeCmd2}")
-                os.system(mergeCmd1)
-                os.system(mergeCmd2)
-
-            fileMerged[sampleName] = [f"{sampleName}.merged.R1.fastq{attachGZ}", f"{sampleName}.merged.R2.fastq{attachGZ}"]
-    dupCount = len(fileMerged)
-    print (f"Merged dup samples {dupCount}")
-
-    with open(args.sample, 'r') as fhs:
-        for line in fhs:
-            if (not re.search("\w", line)):
-                continue
-            line = line.rstrip()
-            fieldArray = line.split(sep="\t")
-            if (len(fieldArray) < 4):
-                print(f"Error: Sample file must have at least four columns, and with no header line. Single-end reads are not supported now. Will be added later")
-                sys.exit()
-
-            sampleName = re.sub("\s", "", fieldArray[0])
-            plateWell = re.sub("\s", "", fieldArray[1])
-
-            if (args.mergeDuplicate == 0):
-                sampleName = sampleName + "__" + plateWell
-
-
-            if (sampleName in fileMerged):
-                if (fileMerged[sampleName] == "done"):
+    if (inputMode==1):
+        #process sample file for inputMode 1, currently, only paired end reads are supported
+        ## first check and merge duplicate samples
+        checkSampleDup = {}
+        fileMerged = {}
+        countSampleFile = 0
+        with open(args.sample, 'r') as fhs:
+            for line in fhs:
+                if (not re.search("\w", line)):
                     continue
-                else:
-                    fieldArray[2] = fileMerged[sampleName][0]
-                    fieldArray[3] = fileMerged[sampleName][1]
-                    fileMerged[sampleName] = "done"
-
-            if (sampleName in sampleList):
-                continue
-            sampleList.append(sampleName)
-
-            if ((not os.path.isfile(fieldArray[2])) and  ("1" not in args.skip)):
-                print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
-                sys.exit()
-            if ((not os.path.isfile(fieldArray[3])) and ("1" not in args.skip)):
-                print(f"Error: Sample fastq file {fieldArray[3]} does not exist!")
-                sys.exit()
+                line = line.rstrip()
+                fieldArray = line.split(sep="\t")
+                sampleName = re.sub("\s", "", fieldArray[0])
+                plateWell = re.sub("\s", "", fieldArray[1])
+                countSampleFile +=1
                 
-            sampleToFileList.append((sampleName, fieldArray[2], fieldArray[3]))
+                if (args.mergeDuplicate == 0):
+                    sampleName = sampleName + "__" + plateWell
+                if (sampleName in checkSampleDup):
+                    checkSampleDup[sampleName].append((fieldArray[2], fieldArray[3]))
+                else:
+                    checkSampleDup[sampleName] = [(fieldArray[2], fieldArray[3])]
+            fhs.close()
+        print (f"Input sample file sets {countSampleFile}")
+        # execute file merging only if step 1 not skipped
 
+
+        for sampleName, files in checkSampleDup.items():
+            if (len(files)>1):
+                ### merge
+                file1List = ""
+                file2List = ""
+                for fff in files:
+                    file1List+= " " + fff[0]
+                    file2List+= " " + fff[1]
+                
+                attachGZ = ""
+                if (".gz" in file1List):
+                    attachGZ = ".gz"
+
+                ## execute merging only if 1 not skipped
+                if ("1" not in args.skip) and (args.restart == 0):
+                    mergeCmd1 = f"cat {file1List} > {sampleName}.merged.R1.fastq{attachGZ}"
+                    mergeCmd2 = f"cat {file2List} > {sampleName}.merged.R2.fastq{attachGZ}"
+
+                    logging.debug(f"Merging: {mergeCmd1}")
+                    logging.debug(f"Merging: {mergeCmd2}")
+                    os.system(mergeCmd1)
+                    os.system(mergeCmd2)
+
+                fileMerged[sampleName] = [f"{sampleName}.merged.R1.fastq{attachGZ}", f"{sampleName}.merged.R2.fastq{attachGZ}"]
+        dupCount = len(fileMerged)
+        print (f"Merged dup samples {dupCount}")
+
+        with open(args.sample, 'r') as fhs:
+            for line in fhs:
+                if (not re.search("\w", line)):
+                    continue
+                line = line.rstrip()
+                fieldArray = line.split(sep="\t")
+                if (len(fieldArray) < 4):
+                    print(f"Error: In mode 1, sample file must have at least four columns, and with no header line. Single-end reads are not supported now. Will be added later")
+                    sys.exit()
+
+                sampleName = re.sub("\s", "", fieldArray[0])
+                plateWell = re.sub("\s", "", fieldArray[1])
+
+                if (args.mergeDuplicate == 0):
+                    sampleName = sampleName + "__" + plateWell
+
+
+                if (sampleName in fileMerged):
+                    if (fileMerged[sampleName] == "done"):
+                        continue
+                    else:
+                        fieldArray[2] = fileMerged[sampleName][0]
+                        fieldArray[3] = fileMerged[sampleName][1]
+                        fileMerged[sampleName] = "done"
+
+                if (sampleName in sampleList):
+                    continue
+                sampleList.append(sampleName)
+
+                if ((not os.path.isfile(fieldArray[2])) and  ("1" not in args.skip)):
+                    print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
+                    sys.exit()
+                if ((not os.path.isfile(fieldArray[3])) and ("1" not in args.skip)):
+                    print(f"Error: Sample fastq file {fieldArray[3]} does not exist!")
+                    sys.exit()
+                    
+                sampleToFileList.append((sampleName, fieldArray[2], fieldArray[3]))
+    if (inputMode==2):
+        with open(args.sample, 'r') as fhs:
+            for line in fhs:
+                if (not re.search("\w", line)):
+                    continue
+                line = line.rstrip()
+                fieldArray = line.split(sep="\t")
+                if (len(fieldArray) < 2):
+                    print(f"Error: In mode 2, sample file must have at least two columns, and with no header line. Single-end reads are not supported now. Will be added later")
+                    sys.exit()
+
+                sampleName = re.sub("\s", "", fieldArray[0])
+                fileName = re.sub("\s", "", fieldArray[1])
+
+                if ((not os.path.isfile(fileName)) and  ("1" not in args.skip)):
+                    print(f"Error: Sample fastq file {fileName} does not exist!")
+                    sys.exit()
+                    
+                if (sampleName in sampleList):
+                    continue
+                sampleList.append(sampleName)
+                    
+                sampleToFileList.append((sampleName, fileName, ""))
+                
     # split the read by primers, and remove primer from each read, and collapase identical reads, and keep top <arg.maxHaplotypePerSample> tags per sample
     if ("1" not in args.skip):
         logging.info("Step 1: splitByPrimer")
@@ -397,16 +440,22 @@ def splitByCutadapt(sampleName, file1, file2):
             os.mkdir(sampleDir)
 
         #contig the paired end reads
-        cmd = f"{bbmergeCMD} t={args.thread} in1={file1} in2={file2} outm={sampleDir}/contig.fastq"
-        logging.info(f"Process {sampleName}: {cmd}")
-        returned_value = subprocess.call(cmd, shell=True)
-        logging.info(f"contiging {sampleName} done: {returned_value}")
+        if inputMode==1:
+            cmd = f"{bbmergeCMD} t={args.thread} in1={file1} in2={file2} outm={sampleDir}/contig.fastq"
+            logging.info(f"Process {sampleName}: {cmd}")
+            returned_value = subprocess.call(cmd, shell=True)
+            logging.info(f"contiging {sampleName} done: {returned_value}")
 
-        #run cutadapt to demultiplexing by primers
-        cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
-        returned_value = subprocess.call(cmd, shell=True)
-        logging.info(f"demultiplexing {sampleName} done: {returned_value}")
-
+            #run cutadapt to demultiplexing by primers
+            cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {sampleDir}/contig.fastq "
+            returned_value = subprocess.call(cmd, shell=True)
+            logging.info(f"demultiplexing {sampleName} done: {returned_value}")
+        elif inputMode==2:
+            #run cutadapt to demultiplexing by primers
+            cmd = f"{cutadaptCMD} --quiet --revcomp --action=trim -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g \"file:{primerFile};min_overlap=10\" -o {sampleDir}/{{name}}.fasta file1 "
+            returned_value = subprocess.call(cmd, shell=True)
+            logging.info(f"demultiplexing {sampleName} done: {returned_value}")
+            
         #collapse identical reads
         tagBySampleFile = f"{tagBySampleDir}/{sampleName}.tbs"
         tbsfh = open(tagBySampleFile, "w")
@@ -415,29 +464,56 @@ def splitByCutadapt(sampleName, file1, file2):
         
         rcFh = open (f"{tagBySampleDir}/{sampleName}.readcount", "w")
         rcFh.write(f"{sampleName}")
-        for marker in markerList:
-            readCount =0
-            markerFile = f"{sampleDir}/{marker}.fastq"
-            collapsedMarkerFile = f"{sampleDir}/{marker}.collapsed"
-            if (os.path.exists(markerFile)):
-                cmd=f"awk 'NR%4==2' {markerFile}|LC_ALL=C sort |uniq -c |LC_ALL=C  sort -k1,1rn > {collapsedMarkerFile}"
-                returned_value = subprocess.call(cmd, shell=True)
-                tagCount = 0
-                topAlleleReadCount = 0
+        if inputMode==1:
+            for marker in markerList:
+                readCount =0
+                markerFile = f"{sampleDir}/{marker}.fastq"
+                collapsedMarkerFile = f"{sampleDir}/{marker}.collapsed"
+                if (os.path.exists(markerFile)):
+                    cmd=f"awk 'NR%4==2' {markerFile}|LC_ALL=C sort |uniq -c |LC_ALL=C  sort -k1,1rn > {collapsedMarkerFile}"
+                    returned_value = subprocess.call(cmd, shell=True)
+                    tagCount = 0
+                    topAlleleReadCount = 0
+                    
+                    with open(collapsedMarkerFile, 'r') as cfh:
+                        for line in cfh:
+                            [copyNumber, seqStr] = line.split()
+                            copyNumber = int(copyNumber)
+                            readCount += copyNumber
+                            if (tagCount==0):
+                                topAlleleReadCount = copyNumber
+                            if (tagCount < args.maxHaplotypePerSample):
+                                if ((topAlleleReadCount/copyNumber) < args.maxAlleleReadCountRatio):
+                                    tagCount+=1
+                                    tbsfh.write(f"{sampleName}\t{marker}\t{seqStr}\t{copyNumber}\n")
+                        cfh.close()
+                rcFh.write(f"\t{readCount}")
+        if inputMode==2:
+            for marker in markerList:
+                readCount =0
+                markerFile = f"{sampleDir}/{marker}.fasta"
+                collapsedMarkerFile = f"{sampleDir}/{marker}.collapsed"
+                if (os.path.exists(markerFile)):
+                    cmd=f"awk 'NR%2==2' {markerFile}|LC_ALL=C sort |uniq -c |LC_ALL=C  sort -k1,1rn > {collapsedMarkerFile}"
+                    returned_value = subprocess.call(cmd, shell=True)
+                    tagCount = 0
+                    topAlleleReadCount = 0
+                    
+                    with open(collapsedMarkerFile, 'r') as cfh:
+                        for line in cfh:
+                            [copyNumber, seqStr] = line.split()
+                            copyNumber = int(copyNumber)
+                            readCount += copyNumber
+                            if (tagCount==0):
+                                topAlleleReadCount = copyNumber
+                            if (tagCount < args.maxHaplotypePerSample):
+                                if ((topAlleleReadCount/copyNumber) < args.maxAlleleReadCountRatio):
+                                    tagCount+=1
+                                    tbsfh.write(f"{sampleName}\t{marker}\t{seqStr}\t{copyNumber}\n")
+                        cfh.close()
+                rcFh.write(f"\t{readCount}")
                 
-                with open(collapsedMarkerFile, 'r') as cfh:
-                    for line in cfh:
-                        [copyNumber, seqStr] = line.split()
-                        copyNumber = int(copyNumber)
-                        readCount += copyNumber
-                        if (tagCount==0):
-                            topAlleleReadCount = copyNumber
-                        if (tagCount < args.maxHaplotypePerSample):
-                            if ((topAlleleReadCount/copyNumber) < args.maxAlleleReadCountRatio):
-                                tagCount+=1
-                                tbsfh.write(f"{sampleName}\t{marker}\t{seqStr}\t{copyNumber}\n")
-                    cfh.close()
-            rcFh.write(f"\t{readCount}")
+                
         tbsfh.close()
         rcFh.write("\n")
         rcFh.close()
