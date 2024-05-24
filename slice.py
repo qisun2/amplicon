@@ -102,7 +102,7 @@ def main():
     print (f"Number of individuals found in data: {t2}")
 
     if (t2 < t1):
-        print (f"List of individuals not found. Please correct them and try again:")
+        print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
         for t in plateWellList:
             if t not in plateWellToSample:
                 print(t)
