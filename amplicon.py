@@ -130,7 +130,11 @@ def main():
         print(f"Error: the --novelTag parameter must be used together with --tagFasta parameter!")
         sys.exit()
 
-
+    if (args.tagFasta != None):
+        if (not os.path.isfile(args.tagFasta)):
+            parser.print_usage()
+            print(f"Error: Known haplotype allele file provided. But the file named '{args.tagFasta}' does not exist!")
+            sys.exit()
 
     primerFile = f"{args.output}/primer.fa"
     tagBySampleDir = f"{args.output}/tagBySampleDir"
@@ -452,7 +456,7 @@ def splitByCutadapt(sampleName, file1, file2):
             logging.info(f"demultiplexing {sampleName} done: {returned_value}")
         elif inputMode==2:
             #run cutadapt to demultiplexing by primers
-            cmd = f"{cutadaptCMD} --quiet --revcomp --action=trim -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g \"file:{primerFile};min_overlap=10\" -o {sampleDir}/{{name}}.fasta file1 "
+            cmd = f"{cutadaptCMD} --quiet --revcomp --action=trim -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g \"file:{primerFile};min_overlap=10\" -o {sampleDir}/{{name}}.fasta {file1} "
             returned_value = subprocess.call(cmd, shell=True)
             logging.info(f"demultiplexing {sampleName} done: {returned_value}")
             
@@ -494,7 +498,7 @@ def splitByCutadapt(sampleName, file1, file2):
                 markerFile = f"{sampleDir}/{marker}.fasta"
                 collapsedMarkerFile = f"{sampleDir}/{marker}.collapsed"
                 if (os.path.exists(markerFile)):
-                    cmd=f"awk 'NR%2==2' {markerFile}|LC_ALL=C sort |uniq -c |LC_ALL=C  sort -k1,1rn > {collapsedMarkerFile}"
+                    cmd=f"awk 'NR%2==0' {markerFile}|LC_ALL=C sort |uniq -c |LC_ALL=C  sort -k1,1rn > {collapsedMarkerFile}"
                     returned_value = subprocess.call(cmd, shell=True)
                     tagCount = 0
                     topAlleleReadCount = 0
@@ -518,7 +522,7 @@ def splitByCutadapt(sampleName, file1, file2):
         rcFh.write("\n")
         rcFh.close()
         logging.info(f"collapsing contig {sampleName} done")
-        os.system("rm -rf %s" % sampleDir)
+        #os.system("rm -rf %s" % sampleDir)
         return 1 
     except Exception as e:
         print(f'Caught exception in job {sampleName} {marker}')
