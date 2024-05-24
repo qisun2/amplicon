@@ -44,6 +44,8 @@ def main():
         for line in fhs:
             if (re.search("\w", line)):
                 line = line.strip()
+                df = line.split("\t")
+                line =df[0]
                 if line not in plateWellList:
                     plateWellList.append(line)
                 continue
