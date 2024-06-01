@@ -15,6 +15,8 @@ def read_tab_delimited_files(file_paths):
         df = pd.read_csv(file_path, delimiter='\t', header=0)
         df = df.drop(columns=['Haplotypes'], errors='ignore')
         tables.append(df)
+        sampleCount =len(df.columns)-1
+        print(f"{sampleCount} samples in {file_path}")
     return tables
 
 def merge_tables(tables):
@@ -94,6 +96,8 @@ def main():
         print (duplicated_cols)
     cols_to_keep = ~myMerged.columns.duplicated(keep='first')
     myMerged = myMerged.loc[:, cols_to_keep]
+    sampleCount =len(df.columns)-2
+    print (f"{sampleCount} samples in merged table. ")
     myMerged.to_csv(args.output, sep='\t', index=False)
 
 
