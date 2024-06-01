@@ -64,6 +64,10 @@ As many software, e.g. Lep-MAP3, requires vcf file format. This script is provid
 ### hap2realVCF tool
 This tool can convert the amplicon.py output into a real VCF file (not like the fake vcf file from to_lep_map.pl script). The SNPs/indels in the vcf file are not phased in haplotypes. See README.md file in the directory how to setup and run this script.
 
+### merge.py script
+To merge multiple hap_genotype files, run the command: merge.py -i inputfile1,inputfile2,inputfile3 -o outputfile 
+(The input files must be the hap_genotype files from amplicon.py. If there are duplcated sample names, only firt ones are kept)
+
 ### slice.py script
 To slice out a family from a big build, prepare a sample name file, with one sample name per line. The sample name should be in the format: plateName_wellName, e.g. vDNAcad794B07_E03. Any text after first column (tab-delimited) will be ignored. familyName in the command can be any string
 Run the command: slice.py -i inputDirectory -o outputDirectory -f sampleFileName -m familyName -a MAF 
