@@ -23,8 +23,12 @@ def main():
     global plateWellToSample
     global sampleToPlateWell
     global polidy 
+    global matrixCountProcessed
+    global hapGenotypeProcessed
 
-
+    matrixCountProcessed=False
+    hapGenotypeProcessed=False
+    
     polidy=2
 
     args=parser.parse_args()
@@ -65,37 +69,87 @@ def main():
 
     #process countMatrix file
     readCountMatrixFile = f"{args.input}/markerToSampleReadCountMatrix"
-    if (not os.path.isfile(readCountMatrixFile)):
-        parser.print_usage()
-        print(f"Error: Read matrix file {readCountMatrixFile} does not exist!")
-        sys.exit()
-    
-    fhs =  open(readCountMatrixFile, 'r')
-    ### read header 
-    MarkerLine = fhs.readline()
+    if os.path.isfile(readCountMatrixFile):
+        fhs =  open(readCountMatrixFile, 'r')
+        ### read header 
+        MarkerLine = fhs.readline()
 
-    filePath =  f"{args.output}/readCountMatrixFile"
-    fh = open (filePath,'w')
-    fh.write(MarkerLine)
+        filePath =  f"{args.output}/readCountMatrixFile"
+        fh = open (filePath,'w')
+        fh.write(MarkerLine)
+        
+        for line in fhs:
+            if (not re.search("\w", line)):
+                continue
+            fieldArray = line.split("\t", 1)
+            sampleName = fieldArray[0]
+            if ("__" not in sampleName):
+                continue
+            plateWell = sampleName.split("__")[1]
+
+            if plateWell not in plateWellList:
+                continue
+            
+            plateWellToSample[plateWell] = sampleName
+            sampleToPlateWell[sampleName] = plateWell
+            fh.write(line)  
+        fhs.close()
+        fh.close()
+
+        t1= len(plateWellList)
+        print (f"Number of individuals in List: {t1}")
+        t2 = len(plateWellToSample)
+        print (f"Number of individuals found in data: {t2}")
+
+        if (t2 < t1):
+            print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
+            for t in plateWellList:
+                if t not in plateWellToSample:
+                    print(t)
+            sys.exit()
+        matrixCountProcessed=True
+        
+        
+        
+    #process hap_genotype file    
+
+    hap_genotype = f"{args.input}/hap_genotype"
+    if (not os.path.isfile(hap_genotype)):
+        parser.print_usage()
+        print(f"Error: Read matrix file {hap_genotype} does not exist!")
+        sys.exit()
+
+    fhs =  open(hap_genotype, 'r')
+
+
+    ### read header 
+    sampleLine = fhs.readline()
+    sampleLine = sampleLine.rstrip()
+    sampleList = sampleLine.split(sep="\t")
+    tt = sampleList.pop(0)
+    tt = sampleList.pop(0)
+
+    sampleNameToIndex = {}
+    plateWellToSample={}
+    sampleToPlateWell={}
+    indexList = []
+    sIndex =0
+
+    for sampleName in sampleList:
     
-    for line in fhs:
-        if (not re.search("\w", line)):
-            continue
-        fieldArray = line.split("\t", 1)
-        sampleName = fieldArray[0]
         if ("__" not in sampleName):
             continue
         plateWell = sampleName.split("__")[1]
-
-        if plateWell not in plateWellList:
-            continue
+            
+            
+        if plateWell in plateWellList:
+            sampleNameToIndex[sampleName] = sIndex
+            plateWellToSample[plateWell] = sampleName
+            sampleToPlateWell[sampleName] = plateWell
         
-        plateWellToSample[plateWell] = sampleName
-        sampleToPlateWell[sampleName] = plateWell
-        fh.write(line)  
-    fhs.close()
-    fh.close()
-
+        sIndex+=1
+    
+    #first make sure the sample list provide in familyFile are all present in the hap_genotype file
     t1= len(plateWellList)
     print (f"Number of individuals in List: {t1}")
     t2 = len(plateWellToSample)
@@ -107,35 +161,11 @@ def main():
             if t not in plateWellToSample:
                 print(t)
         sys.exit()
-
-    #process hap_genotype file
-    hap_genotype = f"{args.input}/hap_genotype"
-    if (not os.path.isfile(hap_genotype)):
-        parser.print_usage()
-        print(f"Error: Read matrix file {hap_genotype} does not exist!")
-        sys.exit()
-    
-    fhs =  open(hap_genotype, 'r')
+        
     filePath =  f"{args.output}/hap_genotype"
     fh = open (filePath,'w')
     fh.write ("Locus\tHaplotypes")
-
-    ### read header 
-    sampleLine = fhs.readline()
-    sampleLine = sampleLine.rstrip()
-    sampleList = sampleLine.split(sep="\t")
-    tt = sampleList.pop(0)
-    tt = sampleList.pop(0)
-
-    sampleNameToIndex = {}
-    indexList = []
-    sIndex =0
-
-    for sampleName in sampleList:
-        if sampleName in sampleToPlateWell:
-            sampleNameToIndex[sampleName] = sIndex
-        sIndex+=1
-
+    
     for plateWell in plateWellList:
         sampleName = plateWellToSample[plateWell]
         sIndex = sampleNameToIndex[sampleName]
