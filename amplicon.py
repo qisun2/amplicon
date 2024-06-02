@@ -92,6 +92,7 @@ def main():
     parser.add_argument('-g','--tagFasta',type=str,required=False,help='tag fasta file, sequence tag name should be >markerNam#alleleID, e.g. >rh_chr9_9574105#31')
     parser.add_argument('-w','--novelTag',type=int,required=False,default=0, help='call novel alleles not defined in tagFasta. must be combined with -g. 0: no novel alleles; 1 : novel allele marked as n#; 2: novel allelele with ID continued from existing allele series.')
     parser.add_argument('-u','--restart',type=int,required=False,default=0,help='set to 1 to restart from crashed point in step 1. Default:0')
+    parser.add_argument('-v','--maxReads',type=str,required=False,default="-1",help='Maximum read pairs per sample to be used in genotyping. Set to 20m for 20 million. Default:-1 to use all reads in fastq files')
     parser.add_argument('--mode',type=int,required=False,default=1,help='1: paired end fastq.gz file;  2: genome contigs. Default:1')
 
     if sys.version_info[0] < 3:
@@ -445,7 +446,7 @@ def splitByCutadapt(sampleName, file1, file2):
 
         #contig the paired end reads
         if inputMode==1:
-            cmd = f"{bbmergeCMD} t={args.thread} in1={file1} in2={file2} outm={sampleDir}/contig.fastq"
+            cmd = f"{bbmergeCMD} reads={args.maxReads} t={args.thread} in1={file1} in2={file2} outm={sampleDir}/contig.fastq"
             logging.info(f"Process {sampleName}: {cmd}")
             returned_value = subprocess.call(cmd, shell=True)
             logging.info(f"contiging {sampleName} done: {returned_value}")
