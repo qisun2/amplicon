@@ -436,7 +436,7 @@ srun {slurmScript} {hostName} {curr_wd} {slurmSampleListabs} {primerFileabs} {re
     mmFh.write("\n")
     mmFh.close()
     os.system(f"cat {tagBySampleDir}/*.readcount >> {readCountMatrixFile}")
-    #os.system(f"rm {tagBySampleDir}/*.readcount")
+    os.system(f"rm {tagBySampleDir}/*.readcount")
 
 def splitByCutadapt(sampleName, file1, file2):
     try:
@@ -523,7 +523,7 @@ def splitByCutadapt(sampleName, file1, file2):
         rcFh.write("\n")
         rcFh.close()
         logging.info(f"collapsing contig {sampleName} done")
-        #os.system("rm -rf %s" % sampleDir)
+        os.system("rm -rf %s" % sampleDir)
         return 1 
     except Exception as e:
         print(f'Caught exception in job {sampleName} {marker}')
