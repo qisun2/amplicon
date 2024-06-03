@@ -12,7 +12,8 @@ def main():
     parser = argparse.ArgumentParser(description='Run slicer.')
     parser.add_argument('-i','--input',type=str,required=True,help='Input directory, it must contain at least one file named hap_genotype from the amplicon.py tool.')
     parser.add_argument('-o','--output',type=str,required=True,help='Output directory.')
-    parser.add_argument('-f','--familyFile',type=str,required=True,help='Family file. It is a text file, with one individual per line. The individual name must be in format plateName_well.')
+    parser.add_argument('-f','--familyFile',type=str,required=False,help='Family file. It is a text file, with one individual per line. The individual name must be in format plateName_well.')
+    parser.add_argument('-p','--plateList',type=str,required=False,help='Plate list file. It is a text file, with one plate per line.')
     #parser.add_argument('-m','--familyName',type=str,required=False,help='Family name. A string with no space.')
     parser.add_argument('-a','--alleleFreq',type=float,required=True,help='Minimum allele frequency.')
 
@@ -25,6 +26,8 @@ def main():
     global polidy 
     global matrixCountProcessed
     global hapGenotypeProcessed
+    global plateList
+    global mode
 
     matrixCountProcessed=False
     hapGenotypeProcessed=False
@@ -33,28 +36,56 @@ def main():
 
     args=parser.parse_args()
 
-    if (not os.path.isfile(args.familyFile)):
+    if ((args.plateList  == None) and (args.familyFile == None)):
+        print(f"Error: the --plateList(-f) and --familyFile(-p) parameter must be provided!")
+        sys.exit()
+ 
+    if ((args.plateList  != None) and (args.familyFile != None)):
+        print(f"Error: the --plateList(-f) and --familyFile(-p) cannot be both provided!")
+        sys.exit()
+        
+    if (args.familyFile != None) and (not os.path.isfile(args.familyFile)):
         parser.print_usage()
         print(f"Error: family file {args.familyFile} does not exist!")
         sys.exit()
 
+    if (args.plateList != None) and (not os.path.isfile(args.plateList)):
+        parser.print_usage()
+        print(f"Error: plate list file {args.plateList} does not exist!")
+        sys.exit()
+        
 
     #process family file
     plateWellList = []
     plateWellToSample = {}
-    sampleToPlateWell = {}
+    sampleToPlateWell = {}  
+    if (args.familyFile != None):
+        mode="sample"
+        with open(args.familyFile, 'r') as fhs:
+            for line in fhs:
+                if (re.search("\w", line)):
+                    line = line.strip()
+                    df = line.split("\t")
+                    line =df[0]
+                    if line not in plateWellList:
+                        plateWellList.append(line)
+                    continue
+            fhs.close()
 
-    with open(args.familyFile, 'r') as fhs:
-        for line in fhs:
-            if (re.search("\w", line)):
-                line = line.strip()
-                df = line.split("\t")
-                line =df[0]
-                if line not in plateWellList:
-                    plateWellList.append(line)
-                continue
-        fhs.close()
-  
+    #process plate file
+    plateList = []
+    if (args.plateList != None):
+        mode="plate"
+        with open(args.plateList, 'r') as fhs:
+            for line in fhs:
+                if (re.search("\w", line)):
+                    line = line.strip()
+                    df = line.split("\t")
+                    line =df[0]
+                    if line not in plateList:
+                        plateList.append(line)
+                    continue
+            fhs.close() 
 
 
     ### create output directories
@@ -74,10 +105,10 @@ def main():
         ### read header 
         MarkerLine = fhs.readline()
 
-        filePath =  f"{args.output}/readCountMatrixFile"
+        filePath =  f"{args.output}/markerToSampleReadCountMatrix"
         fh = open (filePath,'w')
         fh.write(MarkerLine)
-        
+        foundPlateDict = {}
         for line in fhs:
             if (not re.search("\w", line)):
                 continue
@@ -86,27 +117,51 @@ def main():
             if ("__" not in sampleName):
                 continue
             plateWell = sampleName.split("__")[1]
-
-            if plateWell not in plateWellList:
+            m= re.match("(.+)_\w{3}$", plateWell)
+            if m:
+                plate = m[1]
+            else:
+                print(f"Warning: sample platewell {plateWell} is skipped")
                 continue
-            
+                
+
+            if (mode=="sample") and (plateWell not in plateWellList):
+                continue
+            if (mode=="plate") and (plate not in plateList):
+                continue
+            if (mode=="plate"):
+                if plate in foundPlateDict:
+                    foundPlateDict[plate]+=1
+                else:
+                    foundPlateDict[plate]=1
+                               
             plateWellToSample[plateWell] = sampleName
             sampleToPlateWell[sampleName] = plateWell
             fh.write(line)  
         fhs.close()
         fh.close()
 
-        t1= len(plateWellList)
-        print (f"Number of individuals in List: {t1}")
-        t2 = len(plateWellToSample)
-        print (f"Number of individuals found in data: {t2}")
+        if (mode=="sample"):
+            t1= len(plateWellList)
+            print (f"Number of individuals in List: {t1}")
+            t2 = len(plateWellToSample)
+            print (f"Number of individuals found in data: {t2}")
 
-        if (t2 < t1):
-            print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
-            for t in plateWellList:
-                if t not in plateWellToSample:
-                    print(t)
-            sys.exit()
+            if (t2 < t1):
+                print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
+                for t in plateWellList:
+                    if t not in plateWellToSample:
+                        print(t)
+                sys.exit()
+           
+        if (mode=="plate"):
+            print ("Found samples per plate in markerToSampleReadCountMatrix:")
+            for p in plateList:
+                if p not in foundPlateDict:
+                    print(f"{p}\t0")
+                else:
+                    print(f"{p}\t{foundPlateDict[p]}")
+                    
         matrixCountProcessed=True
         
         
@@ -134,45 +189,75 @@ def main():
     sampleToPlateWell={}
     indexList = []
     sIndex =0
+    foundPlateDict={}
 
+    outputSampleList =[]
     for sampleName in sampleList:
     
         if ("__" not in sampleName):
             continue
         plateWell = sampleName.split("__")[1]
+        m= re.match("(.+)_\w{3}$", plateWell)
+        if m:
+            plate = m[1]
+        else:
+            print(f"Warning: sample platewell {plateWell} is skipped")
+            continue    
             
-            
-        if plateWell in plateWellList:
+        if (mode=="sample") and (plateWell in plateWellList):
             sampleNameToIndex[sampleName] = sIndex
             plateWellToSample[plateWell] = sampleName
             sampleToPlateWell[sampleName] = plateWell
-        
+        if (mode=="plate") and (plate in plateList):
+            outputSampleList.append(plateWell)
+            sampleNameToIndex[sampleName] = sIndex
+            plateWellToSample[plateWell] = sampleName
+            sampleToPlateWell[sampleName] = plateWell
+            if plate in foundPlateDict:
+                foundPlateDict[plate]+=1
+            else:
+                foundPlateDict[plate]=1
+            
         sIndex+=1
     
     #first make sure the sample list provide in familyFile are all present in the hap_genotype file
-    t1= len(plateWellList)
-    print (f"Number of individuals in List: {t1}")
-    t2 = len(plateWellToSample)
-    print (f"Number of individuals found in data: {t2}")
+    if (mode=="sample"):
+        outputSampleList=plateWellList
+        t1= len(plateWellList)
+        print (f"Number of individuals in List: {t1}")
+        t2 = len(plateWellToSample)
+        print (f"Number of individuals found in data: {t2}")
 
-    if (t2 < t1):
-        print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
-        for t in plateWellList:
-            if t not in plateWellToSample:
-                print(t)
-        sys.exit()
-        
+        if (t2 < t1):
+            print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
+            for t in plateWellList:
+                if t not in plateWellToSample:
+                    print(t)
+            sys.exit()
+            
+    if (mode=="plate"):
+        print ("Found samples per plate in hap_genotype:")
+        for p in plateList:
+            if p not in foundPlateDict:
+                print(f"{p}\t0")
+            else:
+                print(f"{p}\t{foundPlateDict[p]}")       
     filePath =  f"{args.output}/hap_genotype"
     fh = open (filePath,'w')
     fh.write ("Locus\tHaplotypes")
     
-    for plateWell in plateWellList:
+    for plateWell in outputSampleList:
         sampleName = plateWellToSample[plateWell]
         sIndex = sampleNameToIndex[sampleName]
         indexList.append(sIndex)
         fh.write(f"\t{sampleName}")
     fh.write(f"\n")
 
+    if (len(indexList) == len(outputSampleList)):
+        print(f"head and matrix sample count do match.")
+    else:
+        print("Something wrong. Header and matrix not matching")
+        sys.exit()
     for line in fhs:
         if (not re.search("\w", line)):
             continue
@@ -198,7 +283,8 @@ def main():
                     else:
                         alleleCounts[a] =1
         if (totalGametes==0):
-            print(f"{markerName}: no data")
+            pass
+            #print(f"{markerName}: no data")
 
         sortedAlleles = sorted(alleleCounts.items(), key=lambda kv: kv[1], reverse=True)
         newHapStr = "";
@@ -211,7 +297,8 @@ def main():
                 newTotalGametes += int(alleleCount[1])
         
         if (newTotalGametes == 0):
-            print(f"{markerName}: no used alleles")
+            pass
+            #print(f"{markerName}: no used alleles")
 
         # re-calculate allele frq based on used allelels
         for alleleCount in sortedAlleles:
