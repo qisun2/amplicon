@@ -184,17 +184,16 @@ def main():
     tt = sampleList.pop(0)
     tt = sampleList.pop(0)
 
-    sampleNameToIndex = {}
-    plateWellToSample={}
-    sampleToPlateWell={}
+    plateWellToIndex = {}
     indexList = []
     sIndex =0
     foundPlateDict={}
 
-    outputSampleList =[]
+    outputPlateWellList =[]
     for sampleName in sampleList:
     
         if ("__" not in sampleName):
+            sIndex+=1
             continue
         plateWell = sampleName.split("__")[1]
         m= re.match("(.+)_\w{3}$", plateWell)
@@ -202,17 +201,14 @@ def main():
             plate = m[1]
         else:
             print(f"Warning: sample platewell {plateWell} is skipped")
+            sIndex+=1
             continue    
             
         if (mode=="sample") and (plateWell in plateWellList):
-            sampleNameToIndex[sampleName] = sIndex
-            plateWellToSample[plateWell] = sampleName
-            sampleToPlateWell[sampleName] = plateWell
+            plateWellToIndex[plateWell] = sIndex
         if (mode=="plate") and (plate in plateList):
-            outputSampleList.append(plateWell)
-            sampleNameToIndex[sampleName] = sIndex
-            plateWellToSample[plateWell] = sampleName
-            sampleToPlateWell[sampleName] = plateWell
+            outputPlateWellList.append(plateWell)
+            plateWellToIndex[plateWell] = sIndex
             if plate in foundPlateDict:
                 foundPlateDict[plate]+=1
             else:
@@ -222,16 +218,16 @@ def main():
     
     #first make sure the sample list provide in familyFile are all present in the hap_genotype file
     if (mode=="sample"):
-        outputSampleList=plateWellList
+        outputPlateWellList=plateWellList
         t1= len(plateWellList)
         print (f"Number of individuals in List: {t1}")
-        t2 = len(plateWellToSample)
+        t2 = len(plateWellToIndex)
         print (f"Number of individuals found in data: {t2}")
 
         if (t2 < t1):
             print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
             for t in plateWellList:
-                if t not in plateWellToSample:
+                if t not in plateWellToIndex:
                     print(t)
             sys.exit()
             
@@ -246,14 +242,14 @@ def main():
     fh = open (filePath,'w')
     fh.write ("Locus\tHaplotypes")
     
-    for plateWell in outputSampleList:
-        sampleName = plateWellToSample[plateWell]
-        sIndex = sampleNameToIndex[sampleName]
+    for plateWell in outputPlateWellList:        
+        sIndex = plateWellToIndex[plateWell]
+        sampleName = sampleList[sIndex]
         indexList.append(sIndex)
         fh.write(f"\t{sampleName}")
     fh.write(f"\n")
 
-    if (len(indexList) == len(outputSampleList)):
+    if (len(indexList) == len(outputPlateWellList)):
         print(f"head and matrix sample count do match.")
     else:
         print("Something wrong. Header and matrix not matching")
