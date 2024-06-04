@@ -96,7 +96,7 @@ def main():
         print (duplicated_cols)
     cols_to_keep = ~myMerged.columns.duplicated(keep='first')
     myMerged = myMerged.loc[:, cols_to_keep]
-    sampleCount =len(df.columns)-2
+    sampleCount =len(myMerged.columns)-2
     print (f"{sampleCount} samples in merged table. ")
     myMerged.to_csv(args.output, sep='\t', index=False)
 
