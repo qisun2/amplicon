@@ -36,8 +36,7 @@ ls $fastqDir | xargs -I {} basename {} | sed "s/.fastq//" | xargs -I {} echo "bw
 
 parallel -j $numJobs < tasks_align
 
-
-ls -1 bam/*.bam > bamlist
+ls -1 bam | sed "s/^/bam\//" > bamlist
 
 bcftools mpileup -b bamlist --fasta-ref $refGenome --threads $numJobs  | bcftools call -mv  -O v -o ./unfiltered.vcf
 

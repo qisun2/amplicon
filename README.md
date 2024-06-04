@@ -73,6 +73,11 @@ To slice out a family from a big build, prepare a sample name file, with one sam
 Run the command: slice.py -i inputDirectory -o outputDirectory -f sampleFileName -a MAF 
 This new code will slice out samples from the genotyping matrix. The inputDirectory should contain hap_genotype and optionally markerToSampleReadCountMatrix from the amplicon.py or merge.py script. MAF is the minimum allele frequency in the family). After run the code, you should see a new output directory, with hap_genotype and markerToSampleReadCountMatrix (if provided as input). The hap_genotype file can be used as input for to_lep_map.pl to convert to VCF files and lepmap pedigree files.
 
+### changeName.py script
+changeName.py -i input_hap_genotype_filename -o output_hap_genotype_filename -n namefile
+
+The name file is a tab delimited text file with two columns (no header line). oldname and newname.
+
 ## Authors
 * **Qi Sun**
 * **Cheng Zou**
