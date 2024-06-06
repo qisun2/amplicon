@@ -39,30 +39,35 @@ If the vcf file looks ok, you might want to delete the fastq and bam directories
 
 ##### Step 3: filter the vcf file
 
-a. filter sites by missing data. (in the example, keep sites with missing data<0.5)
+a. filter sites by missing data. (in the example, keep sites with missing data<0.3, and maf > 0.01)
 
 ```
-bcftools filter -i 'F_MISSING<0.5'  -O v -o filtered_sites.vcf unfiltered.vcf
+bcftools view -q 0.01:minor -i 'F_MISSING<0.3' -o filtered.vcf.gz -O z unfiltered.vcf.gz
 ```
 
 b. filter samples by missing data (in the example, keep samples with missing data<0.5)
 
 ```
-vcftools --missing-indv --vcf filtered_sites.vcf
+#get sample list with missing data
+bcftools query -f '[%SAMPLE\t%GT\n]' filtered.vcf.gz | \
+awk '{count[$1]++; if($2 == "./.") missing[$1]++} END {for (sample in count) print sample, missing[sample]/count[sample]}' > sample_missing_data.txt
 
-awk '{if ($5<0.50) print}' out.imiss |cut -f1 > keep
+#filter
+awk '$2 > 0.5 {print $1}' sample_missing_data.txt > samples_to_remove.txt
 
-bcftools view -S keep filtered_sites.vcf > filtered_sites_sample.vcf
+#filter these samples
+bcftools view --samples-file ^samples_to_remove.txt -Oz -o sample_filtered.vcf.gz filtered.vcf.gz
+
 ```
 
 The filtered vcf file is filtered_sites_sample.vcf 
 
-c. check minor allele frequency per site (optional)
+c. get stats
 
 ```
-bcftools +fill-tags filtered_sites_sample.vcf > final.vcf
+bcftools +fill-tags -O z -o final.vcf.gz  filtered.vcf.gz
 
-bcftools query -f '%CHROM\t%POS\t%AF\t%NS\n'  final.vcf > maf.stat.txt
+bcftools query -f '%CHROM\t%POS\t%AF\t%NS\n'  final.vcf.gz > maf_ns.stat.txt
 ```
 
-In the maf.stat.txt, the 3rd column is the allele frequency, 4th column is the number of samples with genotyping data.
+In the maf_ns.stat.txt, the 3rd column is the allele frequency, 4th column is the number of samples with genotyping data.
