@@ -71,11 +71,12 @@ To merge multiple hap_genotype files, run the command: merge.py -i inputfile1,in
 ### slice.py script
 You can slice by either a list of plates, or a list of individuals.
 
-To slice by a list of individuals, prepare a sample name file, with one sample name per line. The sample name should be in the format: plateName_wellName, e.g. vDNAcad794B07_E03. Any text after first column (tab-delimited) will be ignored. familyName in the command can be any string
-Run the command: slice.py -i inputDirectory -o outputDirectory -f sampleFileName -a MAF 
+To slice by a list of individuals, prepare a sample name file, with one sample name per line. The sample name should be in the format: plateName_wellName, e.g. vDNAcad794B07_E03. Any text after first column (tab-delimited) will be ignored.
+Run the command: slice.py -i inputDirectory -o outputDirectory -f sampleFileName -a MAF
+
 (In the output file, the samples will be ordered based on what is in the file)
 
-To slice out a family by a list of plates, prepare a plate name file, with one plate name per line. The sample name should be in the format: plateName_wellName, e.g. vDNAcad794B07_E03. Any text after first column (tab-delimited) will be ignored. familyName in the command can be any string
+To slice out a family by a list of plates, prepare a plate name file, with one plate name per line.
 Run the command: slice.py -i inputDirectory -o outputDirectory -p plateFileName -a MAF 
 
 This new code will slice out samples from the genotyping matrix. The inputDirectory should contain hap_genotype and optionally markerToSampleReadCountMatrix from the amplicon.py or merge.py script. MAF is the minimum allele frequency in the family). After run the code, you should see a new output directory, with hap_genotype and markerToSampleReadCountMatrix (if provided as input). The hap_genotype file can be used as input for to_lep_map.pl to convert to VCF files and lepmap pedigree files.
