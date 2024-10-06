@@ -2,6 +2,7 @@
 import sys
 import argparse
 import os
+import gzip
 from os.path import isfile, join
 import re
 
@@ -10,7 +11,7 @@ def main():
         raise Exception("This code requires Python 3.")
 
     parser = argparse.ArgumentParser(description='Run slicer.')
-    parser.add_argument('-i','--input',type=str,required=True,help='Input directory, it must contain at least one file named hap_genotype from the amplicon.py tool.')
+    parser.add_argument('-i','--input',type=str,required=True,help='Input directory, it must contain a file named hap_genotype or hap_genotype.gz from the amplicon.py tool.')
     parser.add_argument('-o','--output',type=str,required=True,help='Output directory.')
     parser.add_argument('-f','--familyFile',type=str,required=False,help='Family file. It is a text file, with one individual per line. The individual name must be in format plateName_well.')
     parser.add_argument('-p','--plateList',type=str,required=False,help='Plate list file. It is a text file, with one plate per line.')
@@ -155,12 +156,21 @@ def main():
     #process hap_genotype file    
 
     hap_genotype = f"{args.input}/hap_genotype"
-    if (not os.path.isfile(hap_genotype)):
+    hap_genotype_gz = f"{args.input}/hap_genotype.gz"
+    
+    if (not os.path.isfile(hap_genotype)) and (not os.path.isfile(hap_genotype_gz)):
         parser.print_usage()
         print(f"Error: Read matrix file {hap_genotype} does not exist!")
         sys.exit()
-
-    fhs =  open(hap_genotype, 'r')
+    has_gz = False
+    if os.path.isfile(hap_genotype_gz):
+        has_gz = True
+        
+    
+    if has_gz:
+        fhs =  gzip.open(hap_genotype_gz, 'rt')
+    else:
+        fhs =  open(hap_genotype, 'rt')
 
 
     ### read header 
