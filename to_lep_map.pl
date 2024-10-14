@@ -352,8 +352,8 @@ LOOP1:while (<IN>)
 	}
 	else
 	{
-		print "Warning: chromosomal position for marker $locus is not provided! In the VCF file, the position will be shown as 0 bp on contig $locus\n";
-		$contig = $locus;
+		print "Warning: chromosomal position for marker $locus is not provided! In the VCF file, the position will be shown as 0 bp on chromosome chr0\n";
+		$contig = "chr0";
 		$pos = 0;
 	}
 	$markernameToContig{$locus} = $contig;
