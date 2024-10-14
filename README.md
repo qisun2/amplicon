@@ -58,8 +58,8 @@ amplicon.py -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
 
 ### to_lep_map.pl script
 As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a "fake" VCF file, in which up to 4 haplotype alleles are represented with A C G T codind.  There is a lookup table to show the corresponding haplotype allele sequences for "A" "C" "G" and "T".  
-  *  Usage:  to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample -p paternalSample -n familyName  
-  *  -b, -m and -p are optional. They should be integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1.
+  *  Usage:  to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample -p paternalSample -l marker2pos -n familyName  
+  *  -b, -m, -p, -l are optional. "-b" "-m" and "-p" are integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1. "-l" is to specify the physical positions of the markers. It should be a tab-delimited table with 3 columns: markerName, chr, pos. 
 
 ### hap2realVCF tool
 This tool can convert the amplicon.py output into a real VCF file (not like the fake vcf file from to_lep_map.pl script). The SNPs/indels in the vcf file are not phased in haplotypes. See README.md file in the directory how to setup and run this script.
