@@ -93,7 +93,7 @@ def main():
     parser.add_argument('-w','--novelTag',type=int,required=False,default=0, help='call novel alleles not defined in tagFasta. must be combined with -g. 0: no novel alleles; 1 : novel allele marked as n#; 2: novel allelele with ID continued from existing allele series.')
     parser.add_argument('-u','--restart',type=int,required=False,default=0,help='set to 1 to restart from crashed point in step 1. Default:0')
     parser.add_argument('-v','--maxReads',type=str,required=False,default="-1",help='Maximum read pairs per sample to be used in genotyping. Set to 20m for 20 million. Default:-1 to use all reads in fastq files')
-    parser.add_argument('--mode',type=int,required=False,default=1,help='1: paired end fastq.gz file;  2: genome contigs. Default:1')
+    parser.add_argument('--mode',type=int,required=False,default=1,help='1: paired end fastq.gz file;  2: genome contigs. 3: single end fastq file. Default:1')
 
     if sys.version_info[0] < 3:
         raise Exception("This code requires Python 3.")
@@ -157,8 +157,10 @@ def main():
         args.maf = 0
         args.minSamplePerHaplotype = 1
         print ("Input data is genome contigs.")
+    elif (inputMode == 3):
+        print ("Input data is single end amplicon.")
     else:
-        print ("--mode must be 1 or 2.")
+        print ("--mode must be 1, 2 or 3.")
         sys.exit()
 
     if (not os.path.exists(args.output)):
@@ -191,7 +193,7 @@ def main():
             primer1 = re.sub("\W", "", fieldArray[1])
             primer2 = re.sub("\W", "", fieldArray[2])
             primer2 = revcom(primer2);
-            if (inputMode==1):
+            if (inputMode==1) or (inputMode==3):
                 primerfh.write(f">{markerName}\n^{primer1}...{primer2}\n")
             elif (inputMode==2):
                 primerfh.write(f">{markerName}\n{primer1}...{primer2}\n")
@@ -200,7 +202,7 @@ def main():
     primerfh.close()
 
     if (inputMode==1):
-        #process sample file for inputMode 1, currently, only paired end reads are supported
+        #process sample file for inputMode 1, paired end reads
         ## first check and merge duplicate samples
         checkSampleDup = {}
         fileMerged = {}
@@ -313,7 +315,91 @@ def main():
                 sampleList.append(sampleName)
                     
                 sampleToFileList.append((sampleName, fileName, ""))
+
+    if (inputMode==3):
+        #process sample file for inputMode 3, single end 
+        ## first check and merge duplicate samples
+        checkSampleDup = {}
+        fileMerged = {}
+        countSampleFile = 0
+        with open(args.sample, 'r') as fhs:
+            for line in fhs:
+                if (not re.search("\w", line)):
+                    continue
+                line = line.rstrip()
+                fieldArray = line.split(sep="\t")
+                sampleName = re.sub("\s", "", fieldArray[0])
+                plateWell = re.sub("\s", "", fieldArray[1])
+                countSampleFile +=1
                 
+                if (args.mergeDuplicate == 0):
+                    sampleName = sampleName + "__" + plateWell
+                if (sampleName in checkSampleDup):
+                    checkSampleDup[sampleName].append((fieldArray[2]))
+                else:
+                    checkSampleDup[sampleName] = [(fieldArray[2])]
+            fhs.close()
+        print (f"Input sample file sets {countSampleFile}")
+        # execute file merging only if step 1 not skipped
+
+
+        for sampleName, files in checkSampleDup.items():
+            if (len(files)>1):
+                ### merge
+                file1List = ""
+                file2List = ""
+                for fff in files:
+                    file1List+= " " + fff[0]
+                
+                attachGZ = ""
+                if (".gz" in file1List):
+                    attachGZ = ".gz"
+
+                ## execute merging only if 1 not skipped
+                if ("1" not in args.skip) and (args.restart == 0):
+                    mergeCmd1 = f"cat {file1List} > {sampleName}.merged.R1.fastq{attachGZ}"
+
+                    logging.debug(f"Merging: {mergeCmd1}")
+                    os.system(mergeCmd1)
+
+                fileMerged[sampleName] = [f"{sampleName}.merged.R1.fastq{attachGZ}"]
+        dupCount = len(fileMerged)
+        print (f"Merged dup samples {dupCount}")
+
+        with open(args.sample, 'r') as fhs:
+            for line in fhs:
+                if (not re.search("\w", line)):
+                    continue
+                line = line.rstrip()
+                fieldArray = line.split(sep="\t")
+                if (len(fieldArray) < 3):
+                    print(f"Error: In mode 3, sample file must have at least three columns, and with no header line.")
+                    sys.exit()
+
+                sampleName = re.sub("\s", "", fieldArray[0])
+                plateWell = re.sub("\s", "", fieldArray[1])
+
+                if (args.mergeDuplicate == 0):
+                    sampleName = sampleName + "__" + plateWell
+
+
+                if (sampleName in fileMerged):
+                    if (fileMerged[sampleName] == "done"):
+                        continue
+                    else:
+                        fieldArray[2] = fileMerged[sampleName][0]
+                        fileMerged[sampleName] = "done"
+
+                if (sampleName in sampleList):
+                    continue
+                sampleList.append(sampleName)
+
+                if ((not os.path.isfile(fieldArray[2])) and  ("1" not in args.skip)):
+                    print(f"Error: Sample fastq file {fieldArray[2]} does not exist!")
+                    sys.exit()
+
+                    
+                sampleToFileList.append((sampleName, fieldArray[2], ""))                
     # split the read by primers, and remove primer from each read, and collapase identical reads, and keep top <arg.maxHaplotypePerSample> tags per sample
     if ("1" not in args.skip):
         logging.info("Step 1: splitByPrimer")
@@ -460,7 +546,11 @@ def splitByCutadapt(sampleName, file1, file2):
             cmd = f"{cutadaptCMD} --quiet --revcomp --action=trim -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g \"file:{primerFile};min_overlap=10\" -o {sampleDir}/{{name}}.fasta {file1} "
             returned_value = subprocess.call(cmd, shell=True)
             logging.info(f"demultiplexing {sampleName} done: {returned_value}")
-            
+        elif inputMode==3:
+            #run cutadapt to demultiplexing by primers
+            cmd = f"{cutadaptCMD} --quiet -e {args.primerErrorRate} --minimum-length={args.minHaplotypeLength} --trimmed-only -g file:{primerFile} -o {sampleDir}/{{name}}.fastq {file1} "
+            returned_value = subprocess.call(cmd, shell=True)
+            logging.info(f"demultiplexing {sampleName} done: {returned_value}")            
         #collapse identical reads
         tagBySampleFile = f"{tagBySampleDir}/{sampleName}.tbs"
         tbsfh = open(tagBySampleFile, "w")
@@ -469,7 +559,7 @@ def splitByCutadapt(sampleName, file1, file2):
         
         rcFh = open (f"{tagBySampleDir}/{sampleName}.readcount", "w")
         rcFh.write(f"{sampleName}")
-        if inputMode==1:
+        if (inputMode==1) or (inputMode==3):
             for marker in markerList:
                 readCount =0
                 markerFile = f"{sampleDir}/{marker}.fastq"
