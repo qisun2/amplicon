@@ -63,11 +63,12 @@ def main():
     global slurmSampleList
     global slurmBatchFile
     global inputMode
+    global primerOri
 
     parser = argparse.ArgumentParser(description='Run GATK Haplotype Caller on ampseq data.')
 
     # Required arguments
-    parser.add_argument('-s','--sample',type=str,required=True,help='Sample file. Tab delimited text file with 3 or 4 columns: sample_Name, plate_well, fastq_file1, (optional)fastq_file2. Plate_well is a string to uniquely define sample if sample names are duplicated.')
+    parser.add_argument('-s','--sample',type=str,required=True,help='Sample file. Tab delimited text file with 3 or 4 columns: sample_Name, plate_well, fastq_file1, (optional)fastq_file2. Plate_well is a string to uniquely define sample if sample names are duplicated. If you do not have plate_well information, duplicate the sample_Name column.')
     parser.add_argument('-k','--key',type=str,required=True,help='Key file. Tab delimited text file with 3 columns: amplicon name, 5 prime sequence, 3 prime sequence')
     parser.add_argument('-o','--output',type=str,required=True,help='Output directory')
 
@@ -94,6 +95,7 @@ def main():
     parser.add_argument('-u','--restart',type=int,required=False,default=0,help='set to 1 to restart from crashed point in step 1. Default:0')
     parser.add_argument('-v','--maxReads',type=str,required=False,default="-1",help='Maximum read pairs per sample to be used in genotyping. Set to 20m for 20 million. Default:-1 to use all reads in fastq files')
     parser.add_argument('--mode',type=int,required=False,default=1,help='1: paired end fastq.gz file;  2: genome contigs. 3: single end fastq file. Default:1')
+    parser.add_argument('--ori',type=int,required=False,default=1, help='1: regular primer orientation (F-R);  2: DArTag primer (F-F). Default:1')
 
     if sys.version_info[0] < 3:
         raise Exception("This code requires Python 3.")
@@ -163,6 +165,13 @@ def main():
         print ("--mode must be 1, 2 or 3.")
         sys.exit()
 
+    primerOri = int(args.ori)
+    if (primerOri == 2):
+        print ("Using DArTag primer orientation F-F.") 
+    else:
+        print ("Using regular primer orientation F-R.")
+
+    
     if (not os.path.exists(args.output)):
         os.mkdir(args.output)
     if (not os.path.exists(tagBySampleDir)):
@@ -192,7 +201,8 @@ def main():
             markerList.append(markerName);
             primer1 = re.sub("\W", "", fieldArray[1])
             primer2 = re.sub("\W", "", fieldArray[2])
-            primer2 = revcom(primer2);
+            if primerOri==1:
+                primer2 = revcom(primer2);
             if (inputMode==1) or (inputMode==3):
                 primerfh.write(f">{markerName}\n^{primer1}...{primer2}\n")
             elif (inputMode==2):
@@ -218,7 +228,8 @@ def main():
                 countSampleFile +=1
                 
                 if (args.mergeDuplicate == 0):
-                    sampleName = sampleName + "__" + plateWell
+                    if sampleName !=plateWell :
+                        sampleName = sampleName + "__" + plateWell
                 if (sampleName in checkSampleDup):
                     checkSampleDup[sampleName].append((fieldArray[2], fieldArray[3]))
                 else:
@@ -265,11 +276,12 @@ def main():
                     print(f"Error: In mode 1, sample file must have at least four columns, and with no header line. Single-end reads are not supported now. Will be added later")
                     sys.exit()
 
-                sampleName = re.sub("\s", "", fieldArray[0])
-                plateWell = re.sub("\s", "", fieldArray[1])
+                sampleName = re.sub("\s", "", fieldArray[0]).strip()
+                plateWell = re.sub("\s", "", fieldArray[1]).strip()
 
                 if (args.mergeDuplicate == 0):
-                    sampleName = sampleName + "__" + plateWell
+                    if sampleName != plateWell:
+                        sampleName = sampleName + "__" + plateWell
 
 
                 if (sampleName in fileMerged):
@@ -333,7 +345,8 @@ def main():
                 countSampleFile +=1
                 
                 if (args.mergeDuplicate == 0):
-                    sampleName = sampleName + "__" + plateWell
+                    if sampleName!=plateWell:
+                        sampleName = sampleName + "__" + plateWell
                 if (sampleName in checkSampleDup):
                     checkSampleDup[sampleName].append((fieldArray[2]))
                 else:
@@ -380,7 +393,8 @@ def main():
                 plateWell = re.sub("\s", "", fieldArray[1])
 
                 if (args.mergeDuplicate == 0):
-                    sampleName = sampleName + "__" + plateWell
+                    if sampleName!=plateWell:
+                        sampleName = sampleName + "__" + plateWell
 
 
                 if (sampleName in fileMerged):
