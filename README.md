@@ -36,7 +36,7 @@ Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any dir
     * Paired-end sequence file 2 (skip if single end). .  
 
   * Key file: A tab delimited text file with three columns. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence. 
-    * By default, the two primers should be in F-R orientation. If the orientation is F-F, use option "--ori 20" 
+    * By default, the two primers should be in F-R orientation. If the orientation is F-F, use option "--ori 2" 
 
   * All fastq.gz files listed in the sample file.  
 
