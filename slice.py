@@ -13,9 +13,9 @@ def main():
     parser = argparse.ArgumentParser(description='Run slicer.')
     parser.add_argument('-i','--input',type=str,required=True,help='Input directory, it must contain a file named hap_genotype or hap_genotype.gz from the amplicon.py tool.')
     parser.add_argument('-o','--output',type=str,required=True,help='Output directory.')
-    parser.add_argument('-f','--familyFile',type=str,required=False,help='Family file. It is a text file, with one individual per line. The individual name must be in format plateName_well.')
-    parser.add_argument('-p','--plateList',type=str,required=False,help='Plate list file. It is a text file, with one plate per line.')
-    #parser.add_argument('-m','--familyName',type=str,required=False,help='Family name. A string with no space.')
+    parser.add_argument('-s','--sampleFile',type=str,required=False,help='Sample file. It is a text file, with one individual per line. The individual name must match the hap_genotype file.')
+    parser.add_argument('-f','--familyFile',type=str,required=False,help='Family file. This option is for the Vitisgen project, which use the sample name convention sample__plateName_well. It is a text file, with one individual per line. The individual name must be in format plateName_well.')
+    parser.add_argument('-p','--plateList',type=str,required=False,help='Plate list file. This option is for the Vitisgen project, which use the sample name convention sample__plateName_well. It is a text file, with one plate per line.')
     parser.add_argument('-a','--alleleFreq',type=float,required=True,help='Minimum allele frequency.')
 
     #global variables
@@ -24,13 +24,14 @@ def main():
     global plateList
     global plateWellToSample
     global mode
+    global sampleNameList
 
     
 
     args=parser.parse_args()
 
-    if ((args.plateList  == None) and (args.familyFile == None)):
-        print(f"Error: the --plateList(-f) and --familyFile(-p) parameter must be provided!")
+    if ((args.plateList  == None) and (args.familyFile == None) and (args.sampleFile == None)):
+        print(f"Error: the --plateList(-f) or --familyFile(-p) or --sampleFile (-s) parameter must be provided!")
         sys.exit()
  
     if ((args.plateList  != None) and (args.familyFile != None)):
@@ -47,6 +48,10 @@ def main():
         print(f"Error: plate list file {args.plateList} does not exist!")
         sys.exit()
         
+    if (args.sampleFile != None) and (not os.path.isfile(args.sampleFile)) :
+        parser.print_usage()
+        print(f"Error: sample file {args.sampleFile} does not exist!")
+        sys.exit()
 
     #process family file
     plateWellList = []
@@ -64,6 +69,9 @@ def main():
                     continue
             fhs.close()
 
+
+            
+            
     #process plate file
     plateList = []
     if (args.plateList != None):
@@ -79,6 +87,21 @@ def main():
                     continue
             fhs.close() 
 
+    sampleNameList = []
+    if (args.sampleFile != None):
+        mode="generic_sample"
+        with open(args.sampleFile, 'r') as fhs:
+            for line in fhs:
+                if (re.search("\w", line)):
+                    line = line.strip()
+                    df = line.split("\t")
+                    line =df[0]
+                    if line not in sampleNameList:
+                        sampleNameList.append(line)
+                        plateWellList.append(line)
+                    continue
+            fhs.close()
+            
 
     ### create output directories
     try:
@@ -106,41 +129,61 @@ def main():
                 continue
             fieldArray = line.split("\t", 1)
             sampleName = fieldArray[0]
-            if ("__" not in sampleName):
-                continue
-            plateWell = sampleName.split("__")[1]
-            m= re.match("(.+)_\w{3}$", plateWell)
-            if m:
-                plate = m[1]
+            
+            if mode == "generic_sample":
+                if (sampleName not in sampleNameList):
+                    plateWellToSample[sampleName] = sampleName
+                    continue
             else:
-                print(f"Warning: sample platewell {plateWell} is skipped")
-                continue
-                
-
-            if (mode=="sample") and (plateWell not in plateWellList):
-                continue
-            if (mode=="plate") and (plate not in plateList):
-                continue
-            if (mode=="plate"):
-                if plate in foundPlateDict:
-                    foundPlateDict[plate]+=1
+                if ("__" not in sampleName):
+                    continue
+                plateWell = sampleName.split("__")[1]
+                m= re.match("(.+)_\w{3}$", plateWell)
+                if m:
+                    plate = m[1]
                 else:
-                    foundPlateDict[plate]=1
-                               
-            plateWellToSample[plateWell] = sampleName
+                    print(f"Warning: sample platewell {plateWell} is skipped")
+                    continue
+                
+                if (mode=="sample") and (plateWell not in plateWellList):
+                    continue
+                
+                if (mode=="plate") and (plate not in plateList):
+                    continue
+                
+                if (mode=="plate"):
+                    if plate in foundPlateDict:
+                        foundPlateDict[plate]+=1
+                    else:
+                        foundPlateDict[plate]=1
+            
+                plateWellToSample[plateWell] = sampleName            
             fh.write(line)  
         fhs.close()
         fh.close()
 
-        if (mode=="sample"):
-            t1= len(plateWellList)
+        if (mode=="generic_sample"):
+            t1= len(sampleNameList)
             print (f"Number of individuals in List: {t1}")
             t2 = len(plateWellToSample)
             print (f"Number of individuals found in data: {t2}")
 
             if (t2 < t1):
                 print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
-                for t in plateWellList:
+                for t in sampleNameList:
+                    if t not in plateWellToSample:
+                        print(t)
+                sys.exit()
+                
+        if (mode=="sample"):
+            t1= len(sampleNameList)
+            print (f"Number of individuals in List: {t1}")
+            t2 = len(plateWellToSample)
+            print (f"Number of individuals found in data: {t2}")
+
+            if (t2 < t1):
+                print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
+                for t in sampleNameList:
                     if t not in plateWellToSample:
                         print(t)
                 sys.exit()
@@ -187,31 +230,46 @@ def main():
     
     for ii in range(sampleCount):
         sampleName = sampleList[ii]
-        if ("__" not in sampleName):
-            continue
-        plateWell = sampleName.split("__")[1]
-        m= re.match("(.+)_\w{3}$", plateWell)
-        if m:
-            plate = m[1]
-        else:
-            print(f"Warning: sample platewell {plateWell} is skipped")
-            continue    
-        
-        if (mode=="sample") and (plateWell in plateWellList) and (plateWell not in plateWell2Index):
-            plateWell2Index[plateWell] = ii
-            
-        if (mode=="plate") and (plate in plateList) and (plateWell not in plateWell2Index):
-            indexList.append(ii)
-            plateWell2Index[plateWell] = ii
-            if plate in foundPlateDict:
-                foundPlateDict[plate]+=1
+        if (mode=="generic_sample"):
+            if (sampleName in sampleNameList) and (sampleName not in plateWell2Index):
+                plateWell2Index[sampleName] = ii
+        else:            
+            if ("__" not in sampleName):
+                continue
+            plateWell = sampleName.split("__")[1]
+            m= re.match("(.+)_\w{3}$", plateWell)
+            if m:
+                plate = m[1]
             else:
-                foundPlateDict[plate]=1
+                print(f"Warning: sample platewell {plateWell} is skipped")
+                continue    
+            
+            if (mode=="sample") and (plateWell in plateWellList) and (plateWell not in plateWell2Index):
+                plateWell2Index[plateWell] = ii
+                
+            if (mode=="plate") and (plate in plateList) and (plateWell not in plateWell2Index):
+                indexList.append(ii)
+                plateWell2Index[plateWell] = ii
+                if plate in foundPlateDict:
+                    foundPlateDict[plate]+=1
+                else:
+                    foundPlateDict[plate]=1
 
         
         
     #first make sure the sample list or plate list provide in familyFile are  present in the hap_genotype file
-    
+    if (mode=="generic_sample"):
+        missingSamples = []
+        for t in sampleNameList:          
+            if t in plateWell2Index:
+                indexList.append(plateWell2Index[t])
+            else:
+                missingSamples.append(t)
+        if len(missingSamples) >0:
+            print (f"The following individuals are not found in hap_genotype file: Please correct them and try again.")
+            print ("\n".join(missingSamples))
+            sys.exit()
+            
     if (mode=="sample"):
         missingSamples = []
         for t in plateWellList:          
