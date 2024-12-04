@@ -12,9 +12,9 @@ If you want to process your amplicon sequencing data using GATK to call variants
 2. Python module: BioPython https://biopython.org/
 3. Other software. 
 The following commands should be installed and in the PATH:
-* bbmerge.sh: https://sourceforge.net/projects/bbmap/
+* bbmerge.sh (required if processing paired-end read data): https://sourceforge.net/projects/bbmap/
 * cutadapt: https://cutadapt.readthedocs.io/en/stable/ (v3 or above)
-* muscle (optional): https://www.drive5.com/muscle/
+* muscle (required if output multiple sequences alignment of the alleles): https://www.drive5.com/muscle/
 * python package swalign (required to run amplicon_dada2.py , https://pypi.org/project/swalign/ )
 * R package dada2 (required to run amplicon_dada2.py , https://bioconductor.org/packages/release/bioc/html/dada2.html )
 
@@ -24,8 +24,16 @@ Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any dir
 ### Usage
 1. Preparing data files.  
     Put the following items in the same directory:  
-  * Sample file: A tab-delimited text file with four columns. 1)Sample Name; 2)sample plate_well, it can be any string to uniquely identify a sample if the sample names are duplicated; 3) Paired-end sequence file 1 (fastq or fastq.gz); 4) Paired-end sequence file 2.  
-  * Key file: A tab delimited text file with three columns. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence.  
+
+  * Sample file: A tab-delimited text file with either three (single-end reads) or four columns (paired-end reads). 
+    * Sample Name;
+    * Sample plate_well (if not available, duplicate the sample name value in first column );
+    * Paired-end sequence file 1 (fastq or fastq.gz);
+    * Paired-end sequence file 2 (skip if single end). .  
+
+  * Key file: A tab delimited text file with three columns. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence. 
+    * By default, the two primers should be in F-R orientation. If the orientation is F-F, use option "--ori 20" 
+
   * All fastq.gz files listed in the sample file.  
 
 2. In the data directory, execute this command:  
@@ -42,6 +50,8 @@ amplicon.py -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
 
 ### Other parameters
   * -h	show this help message and exit
+  * -k         key file
+  * -s         sample file
   * -i	Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes
   * -j	Number of simultaneous jobs. Default:8
   * -t	Number of threads per job. Default:1
@@ -52,9 +62,15 @@ amplicon.py -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * -l	Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50
   * -d	Whether to merge the duplicate samples. 1: Merge; 0: Do not merge and the duplicated sample will be named <sampleName>__<index starting from 1>. Default:1
   * -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
-  * -p	Ploidy, default 2
+  * -p	Ploidy, default 2 (not implemented yet for polyploidy)
   * -r	Maximum read count ratio between the two alleles in each sample, default 20
+  * -g         Set tag fasta file, so known allele ID will be used. 
+  * -w       Novel tag mode. 0: no novel alleles; 1 : novel allele ID start from 1000000;  2: novel allelele ID continue from existing allele ID. If "-g" not set, novel allele ID start from 1. 
   * -z	Mismatch rate between pcr primer and reads, default 0.1
+  * -u       Set to 1 to restart from crashed point in step 1. 
+  * -v        Maximum reads to process per sample.  Default -1 to use all reads in the file.
+  * --mode   Set input data mode to 1, 2, or 3. 1:paired end fastq.gz file; 2: genome contigs. 3: single end fastq file. Default:1
+  * --ori         Set primer sequence orientation. 1: F-R (default); 2: F-F
 
 ### to_lep_map.pl script
 As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a "fake" VCF file, in which up to 4 haplotype alleles are represented with A C G T codind.  There is a lookup table to show the corresponding haplotype allele sequences for "A" "C" "G" and "T".  
