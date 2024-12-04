@@ -62,7 +62,7 @@ amplicon.py -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15
   * -l	Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50
   * -d	Whether to merge the duplicate samples. 1: Merge; 0: Do not merge and the duplicated sample will be named <sampleName>__<index starting from 1>. Default:1
   * -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
-  * -p	Ploidy, default 2 (not implemented yet for polyploidy)
+  * -p	Ploidy, default 2
   * -r	Maximum read count ratio between the two alleles in each sample, default 20
   * -g         Set tag fasta file, so known allele ID will be used. 
   * -w       Novel tag mode. 0: no novel alleles; 1 : novel allele ID start from 1000000;  2: novel allelele ID continue from existing allele ID. If "-g" not set, novel allele ID start from 1. 
