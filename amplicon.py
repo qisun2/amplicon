@@ -3,6 +3,7 @@
 import logging
 from os import listdir
 from os.path import isfile, join
+import distutils.spawn
 import argparse
 from pathlib import Path
 import os
@@ -36,7 +37,8 @@ from collections import defaultdict
 haplotypeAvgToLengthRatio =2 #For each marker, if an allele has less than 1/haplotypeAvgToLengthRatio of the averagelength, this allele is skipped
 slurmScript = "/home/vitisgen/tools/run_cutadapt.py"
 
-bbmergeCMD = "/programs/bbmap-38.45/bbmerge.sh"
+    
+bbmergeCMD="bbmerge.sh"
 cutadaptCMD = "cutadapt"
 baseWorkdir = "/workdir"
 
@@ -102,6 +104,34 @@ def main():
 
     args=parser.parse_args()
 
+    inputMode = int(args.mode)
+    if (inputMode == 1):
+        print ("Input data is paired-end amplicon.")
+    elif (inputMode == 2):
+        args.novelTag = 1
+        args.maf = 0
+        args.minSamplePerHaplotype = 1
+        print ("Input data is genome contigs.")
+    elif (inputMode == 3):
+        print ("Input data is single end amplicon.")
+    else:
+        print ("--mode must be 1, 2 or 3.")
+        sys.exit()
+        
+    #check dependency
+    if distutils.spawn.find_executable("bbmerge.sh") is None:
+        if os.path.isfile("/programs/bbmap-38.45/bbmerge.sh"):
+            #cornell biohpc path to bbmap software
+            bbmergeCMD= "/programs/bbmap-38.45/bbmerge.sh"
+        elif inputMode==1:
+            print("bbmerge.sh from bbmap is required for paired-end data. It must be in $PATH")
+            sys.exit()
+        else:
+            print("bbmap is not needed for this mode.")
+
+    if distutils.spawn.find_executable(cutadaptCMD) is None:
+        print("cutadapt is required for paired-end data. It must be in $PATH")
+        sys.exit()
 
     doneSamples = set()
     if (args.restart == 1):
@@ -151,19 +181,7 @@ def main():
     slurmBatchFile = f"{args.output}/slurm.sh"
     slurmSampleList = f"{args.output}/slurmSamples"
     
-    inputMode = int(args.mode)
-    if (inputMode == 1):
-        print ("Input data is paired-end amplicon.")
-    elif (inputMode == 2):
-        args.novelTag = 1
-        args.maf = 0
-        args.minSamplePerHaplotype = 1
-        print ("Input data is genome contigs.")
-    elif (inputMode == 3):
-        print ("Input data is single end amplicon.")
-    else:
-        print ("--mode must be 1, 2 or 3.")
-        sys.exit()
+
 
     primerOri = int(args.ori)
     if (primerOri == 2):
