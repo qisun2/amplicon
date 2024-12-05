@@ -1,60 +1,79 @@
 # amplicon.py
 
-This python script (amplicon.py) is developed for the Vitisgen2 project (https://www.vitisgen2.org/) to analyzes multi-plexed amplicon sequencing data, optimized for high-throughput IDT rhAmpSeq data. Another script (to_lep_map.pl) converts the output from amplicon.py to a VCF file that can be loaded into LepMap3 software for genetic linkage map construction. The alleles in the VCF file (A, C, G, T) are not actual nucleotide alleles, but symbols representing up to 4 haplotytpe alleles per marker. There is a lookup table in the output files to give you the actual sequences of each haplotype represented by the "ACGT".  
-
-If you want to process your amplicon sequencing data using GATK to call variants, you can use this code: https://bitbucket.org/cornell_bioinformatics/gatk4amplicon  
+This python script (amplicon.py) is developed for the Vitisgen2 & Vitisgen3 projects ([https://vitisgen3.umn.edu](https://vitisgen3.umn.edu)) to analyzes multi-plexed amplicon sequencing data. The output is a multi-allelic haplotype genotyping matrix. If a known-haplotype allele sequence file is provided, the script can be used for genotyping with known alleles. 
 
 ## Getting Started
 
 
 ### Prerequisites
 
-1. Python 3 (tested on python 3.6) and PERL (tested on 5.22)
+1. Python 3 (tested on python 3.6 and 3.9) and PERL (tested on 5.22 and 5.32)
 2. Python module: BioPython https://biopython.org/
 3. Other software. 
-   The following commands should be installed and in the PATH:
+   The following commands should be installed and in the $PATH:
 
-* bbmerge.sh (required if processing paired-end read data): https://sourceforge.net/projects/bbmap/
-* cutadapt: https://cutadapt.readthedocs.io/en/stable/ (v3 or above)
-* muscle (required if output multiple sequences alignment of the alleles): https://www.drive5.com/muscle/
-* python package swalign (required to run amplicon_dada2.py , https://pypi.org/project/swalign/ )
-* R package dada2 (required to run amplicon_dada2.py , https://bioconductor.org/packages/release/bioc/html/dada2.html )
+* cutadapt (required): https://cutadapt.readthedocs.io/en/stable/ (v3 or above)
+* bbmap (required for paired-end reads): https://sourceforge.net/projects/bbmap/
+* muscle (optional): https://www.drive5.com/muscle/
+* python package swalign (only for running amplicon_dada2.py , https://pypi.org/project/swalign/ )
+* R package dada2 (only for running amplicon_dada2.py , https://bioconductor.org/packages/release/bioc/html/dada2.html )
 
 ### Installation
 
-Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any directory
+Download the  repository: 
 
-### Usage
+```
+git clone https://bitbucket.org/cornell_bioinformatics/amplicon.git
+```
 
-1. Preparing data files.  
-   Put the following items in the same directory:  
 
-  * Sample file: A tab-delimited text file with either three (single-end reads) or four columns (paired-end reads). 
+
+### Applications
+
+#### 1. Call genotypes from raw sequencing data 
+
+**Script:** amplicon.py
+
+**Steps:**
+
+1. **<u>Preparing input data files.</u>**  
+
+  * **Sample file:** A tab-delimited text file with either three (single-end reads) or four columns (paired-end reads). No header line.
     * Sample Name;
-    * Sample plate_well (if not available, duplicate the sample name value in first column );
-    * Paired-end sequence file 1 (fastq or fastq.gz);
-    * Paired-end sequence file 2 (skip if single end). .  
+    * PlateName_Well of the sample (eg. vDNAcad794B07_E03. If not available, duplicate the sample names from the first column);
+    * Path of paired-end sequence file 1 (fastq or fastq.gz);
+    * Path of paired-end sequence file 2 (skip for single end data) .  
 
-  * Key file: A tab delimited text file with three columns. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence. 
-    * By default, the two primers should be in F-R orientation. If the orientation is F-F, use option "--ori 2" 
+  * **Key file:** A tab delimited text file with three columns. No header line. 1) marker name; 2) 5' PCR primer sequence; 3) 3' PCR primer sequence. 
+    * By default, the sequences of the two primers should be in F-R orientation. If the orientation is F-F, use option "--ori 2" 
 
-  * All fastq.gz files listed in the sample file.  
+  * **fastq.gz files:** the sequencing data files listed in the sample file.  
 
-2. In the data directory, execute this command:  
-   amplicon.py -s sampleFileName -k keyFileName -o outputDirName -j 10 -a 0.15  
+2. **<u>Run command:</u>** 
 
- * -j 10:  process 10 samples simultaneously. This should not exceed the total number of CPU cores on your computer, and should not exceed 20 even if you have more cores du to IO limitation.  
- * -a 0.15: minimum minor allele frequency  
+   A typical command for paired end data:
 
-### Output files
+   ```
+   amplicon.py -v 20m -j 40 -s sampleFile -k keyFile  -o outputDir -c 2 -n 20 -a 0.01 -m 50 -l 100 -d 0 -z 0.1 -r 10
+   ```
 
-  * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
-  * hap_genotype_matrix: A file transposed from hap_genotype file, and without read count per allele information. 
-  * HaplotypeAllele.fasta: A fasta file with haplotype sequence per allele.
-  * topHaplotypeAllele.fasta: A fasta file with the top allele per marker
+   A typical command for single end data:
 
+   ```
+   amplicon.py -v 20m -j 40 -s sampleFile -k keyFile -o outputDir  -c 2 -n 20 -a 0.01 -m 50 -l 30 -d 0 -z 0.1 -r 10  --mode 3 --ori 2
+   ```
 
-### Other parameters
+3. **<u>Output files</u>**
+
+     * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
+
+     * hap_genotype_matrix: A file transposed from hap_genotype file, and without read count per allele information. 
+
+     * HaplotypeAllele.fasta: A fasta file with haplotype sequence per allele.
+
+       
+
+4. **<u>Parameters for amplicon.py</u>**
 
   * -h	show this help message and exit
   * -k         key file
@@ -79,52 +98,81 @@ Download the two scripts: amplicon.py and to_lep_map.pl, and put them in any dir
   * --mode   Set input data mode to 1, 2, or 3. 1:paired end fastq.gz file; 2: genome contigs. 3: single end fastq file. Default:1
   * --ori         Set primer sequence orientation. 1: F-R (default); 2: F-F
 
-### to_lep_map.pl script
 
-As many software, e.g. Lep-MAP3, requires vcf file format. This script is provided to convert the hap_genotype from previous step to a "fake" VCF file, in which up to 4 haplotype alleles are represented with A C G T codind.  There is a lookup table to show the corresponding haplotype allele sequences for "A" "C" "G" and "T".  
 
-  *  Usage:  to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample -p paternalSample -l marker2pos -n familyName  
-  *  -b, -m, -p, -l are optional. "-b" "-m" and "-p" are integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1. "-l" is to specify the physical positions of the markers. It should be a tab-delimited table with 3 columns: markerName, chr, pos. 
+### 2. Replace sample names in the  hap_genotype file
 
-### hap2realVCF tool
+```
+changeName.py -i PATH_of_input_hap_genotype_file -o PATH_of_outputput_hap_genotype_file -n namefile
+```
 
-This tool can convert the amplicon.py output into a real VCF file (not like the fake vcf file from to_lep_map.pl script). The SNPs/indels in the vcf file are not phased in haplotypes. See README.md file in the directory how to setup and run this script.
-
-### merge.py script
-
-To merge multiple hap_genotype files, run the command: merge.py -i inputfile1,inputfile2,inputfile3 -o outputfile 
-(The input files must be the hap_genotype files from amplicon.py. If there are duplcated sample names, only firt ones are kept)
-
-### slice.py script
-
-You can slice by either a list of plates, or a list of individuals. This  code will slice out samples from the genotyping matrix. The inputDirectory should contain hap_genotype and optionally markerToSampleReadCountMatrix from the amplicon.py or merge.py script. MAF is the minimum allele frequency in the family). After run the code, you should see a new output directory, with hap_genotype and markerToSampleReadCountMatrix (if provided as input). The hap_genotype file can be used as input for to_lep_map.pl to convert to VCF files and lepmap pedigree files.
-
-In the output file, the samples will be ordered based on what is in the sample list file. 
+The name file is a tab delimited text file with two columns (no header line): old name and new name.
 
 
 
-To slice by a list of individuals, prepare a sample name file, with one sample name per line. 
+### 3. Slice & Merge the hap_genotype file
+###### slice.py script
 
-Run the command: slice.py -i inputDirectory -o outputDirectory -s sampleFileName -a 0.01
+You can slice by either a list of plates or a list of samples. This code will slice out samples from the genotyping matrix. 
 
-(-a to specify minor allele frequency cutoff)
+To slice by a list of individuals, prepare a sample file, with one sample name per line. 
+
+```
+slice.py -i inputDirectory -o outputDirectory -s sampleFileName -a 0.001
+```
+
+(Use -a to specify minor allele frequency cutoff. Markers with MAF smaller than cutoff will be discarded. Set "-a 0" to keep all markers)
+
+The inputDirectory should contain at least one file named hap_genotype, and optionally markerToSampleReadCountMatrix from the amplicon.py or merge.py script. The sliced file will be written into the outputDirectory.
+
+In the output hap_genotype file, the samples will be ordered based on the provided sample file. 
 
 
 
-For Vitisgen project, 
+###### merge.py script
 
-To slice by Vitisgen samples, sample name should be in the format "plateName_wellName", e.g. vDNAcad794B07_E03, or a list of plates. Run the command: slice.py -i inputDirectory -o outputDirectory -f vitisgenSampleFileName -a 0.01
+To merge multiple hap_genotype files, run the command: 
+
+```
+merge.py -i inputfile1,inputfile2,inputfile3 -o outputfile 
+```
+
+(The input files must be the hap_genotype files from amplicon.py. If there are duplicated sample names, only first ones are kept)
+
+
+
+**For Vitisgen project,** 
+
+```
+To slice by Vitisgen samples with "plateName_wellName", make a file with "plateName_wellName" for each sample, e.g. vDNAcad794B07_E03. Run command: slice.py -i inputDirectory -o outputDirectory -f vitisgenSampleFileName -a 0.01
 
 To slice by Vitisgen plates, prepare a plate name file, with one plate name per line.
-Run the command: slice.py -i inputDirectory -o outputDirectory -p plateFileName -a MAF 
+Run command: slice.py -i inputDirectory -o outputDirectory -p plateFileName -a MAF 
+```
 
 
 
-### changeName.py script
+### 4. Convert to VCF file
 
-changeName.py -i input_hap_genotype_filename -o output_hap_genotype_filename -n namefile
+##### 4.1. Call SNP and INDELs into a VCF file
 
-The name file is a tab delimited text file with two columns (no header line). oldname and newname.
+see https://bitbucket.org/cornell_bioinformatics/amplicon/src/master/hap2realVCF/
+
+4.2. Make a haplotype VCF file
+
+###### to_lep_map.pl script
+
+Lep-MAP3 requires a vcf file as input. This script converts the hap_genotype from previous step to a "haplotype" VCF file, in which up to 4 haplotype alleles are represented with A C G T codes.  There is a lookup table to show the corresponding haplotype allele sequences for "A" "C" "G" and "T".  
+
+  * Run command
+
+    ```
+    to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample -p paternalSample -l marker2pos -n familyName  
+    ```
+
+  *  -b, -m, -p, -l are optional. "-b" "-m" and "-p" are integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1. "-l" is to specify the physical positions of the markers. It should be a tab-delimited table with 3 columns: markerName, chr, pos. 
+
+
 
 ## Authors
 
