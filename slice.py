@@ -166,14 +166,8 @@ def main():
             t1= len(sampleNameList)
             print (f"Number of individuals in List: {t1}")
             t2 = len(plateWellToSample)
-            print (f"Number of individuals found in data: {t2}")
+            print (f"Number of individuals found in markerToSampleReadCountMatrix: {t2}")
 
-            if (t2 < t1):
-                print (f"The following individuals are not found in the amplicon.py output directory {args.input}. Please correct them and try again:")
-                for t in sampleNameList:
-                    if t not in plateWellToSample:
-                        print(t)
-                sys.exit()
                 
         if (mode=="sample"):
             t1= len(sampleNameList)
