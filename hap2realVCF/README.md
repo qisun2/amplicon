@@ -1,6 +1,6 @@
 ### hap2realVCF
 
-Convert the amplicon.py output to real VCF. 
+Convert the amplicon.py output to a SNP VCF file. 
 
 ##### Dependencies:
 
@@ -10,32 +10,29 @@ Convert the amplicon.py output to real VCF.
 - vcftools (optional, for sample missing data statistics)
 - gnu parallel
 
-##### Installation
-Use pip to install the required python modules. All you need is this python script file.
-
 ##### Step 1: create fastq files for each sample, using two output files from amplicon.py: hap_genotype HaplotypeAllele.fasta. The output fastq files will be created in the directory readOutputDir
 
 ```
 hap2reads.py hap_genotype HaplotypeAllele.fasta readOutputDir
 ```
 
-##### Step 2: create vcf file from the fastq files
+##### Step 2: create vcf file
 
-Prepare reference genome (bwa indexed genome) :
+Index reference genome:
 
 ```
 bwa index mygenome.fasta
 ```
 
-Create vcf file, input files including: the directory from hap2reads.py, and bwa indexed reference genome. The last parameter is the number of jobs running in parallel. This number is dependent on how many CPU cores on your computer. If not set, default to 4. Each job will use 2 cpu cores. Do not set this number too large. Otherwise you will run into memory problems. (use hap2vcf_mac.sh if you run on a Mac) 
+Create vcf file. 
 
 ```
 hap2vcf.sh path_of_readOutputDir full_path_of_mygenome.fasta number_of_parallel_jobs
 ```
 
-The output vcf file is unfiltered.vcf. 
-
-If the vcf file looks ok, you might want to delete the fastq and bam directories to save storage space. The fastq directory is the output from hap2read.py, and the bam directory is named "bam" and located in current directory.
+- The last parameter is the number of jobs running in parallel. This number is dependent on how many CPU cores on your computer. If not set, default to 4. Each job will use 2 cpu cores. Do not set this number too large. Otherwise you will run into memory problems. (use hap2vcf_mac.sh if you run on a Mac) 
+- The output vcf file is unfiltered.vcf. 
+- If the vcf file looks ok, you might want to delete the fastq and bam directories to save storage space. The fastq directory is the output from hap2read.py, and the bam directory is named "bam" and located in current directory.
 
 ##### Step 3: filter the vcf file
 
