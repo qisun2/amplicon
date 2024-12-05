@@ -1,6 +1,4 @@
-# amplicon.py
-
-This python script (amplicon.py) is developed for the Vitisgen2 & Vitisgen3 projects ([https://vitisgen3.umn.edu](https://vitisgen3.umn.edu)) to analyzes multi-plexed amplicon sequencing data. The output is a multi-allelic haplotype genotyping matrix. If a known-haplotype allele sequence file is provided, the script can be used for genotyping with known alleles. 
+This packge is developed for the Vitisgen2 & Vitisgen3 projects ([https://vitisgen3.umn.edu](https://vitisgen3.umn.edu)) to analyze multi-plexed amplicon sequencing data. The output is a multi-allelic haplotype genotyping matrix. If a known-haplotype allele sequence file is provided, the script can be used for genotyping with known alleles. 
 
 ## Getting Started
 
