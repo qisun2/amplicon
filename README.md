@@ -8,10 +8,8 @@ This packge is developed for the Vitisgen2 & Vitisgen3 projects ([https://vitisg
    The following commands should be installed and in the $PATH:
 
 * cutadapt (required): https://cutadapt.readthedocs.io/en/stable/ (v3 or above)
-* bbmap (required for paired-end reads): https://sourceforge.net/projects/bbmap/
-* muscle (optional): https://www.drive5.com/muscle/
-* python package swalign (only for running amplicon_dada2.py , https://pypi.org/project/swalign/ )
-* R package dada2 (only for running amplicon_dada2.py , https://bioconductor.org/packages/release/bioc/html/dada2.html )
+* bbmap (required for paired-end reads only): https://sourceforge.net/projects/bbmap/
+
 
 ### Installation
 
