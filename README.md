@@ -1,8 +1,5 @@
 This packge is developed for the Vitisgen2 & Vitisgen3 projects ([https://vitisgen3.umn.edu](https://vitisgen3.umn.edu)) to analyze multi-plexed amplicon sequencing data. The output is a multi-allelic haplotype genotyping matrix. If a known-haplotype allele sequence file is provided, the script can be used for genotyping with known alleles. 
 
-## Getting Started
-
-
 ### Prerequisites
 
 1. Python 3 (tested on python 3.6 and 3.9) and PERL (tested on 5.22 and 5.32)
@@ -60,6 +57,29 @@ git clone https://bitbucket.org/cornell_bioinformatics/amplicon.git
    ```
    amplicon.py -v 20m -j 40 -s sampleFile -k keyFile -o outputDir  -c 2 -n 20 -a 0.01 -m 50 -l 30 -d 0 -z 0.1 -r 10  --mode 3 --ori 2
    ```
+   Using "-g" and "-w" parameters to control allele discovery and allele calling mode
+
+   ```
+   #"-g" not set.
+   If "-g" not set, "-w" will be ignored. With no known allele sequences availabe, the software will call alleles starting from allele ID #1 for each locus.
+   
+   #"-w 0 -g known_HaplotypeAllele.fasta"
+   Call alleles from input file known_HaplotypeAllele.fasta. Alleles that are not present in the fasta file will not be called.
+   
+   #"-w 1 -g known_HaplotypeAllele.fasta"
+   Call alleles from input file known_HaplotypeAllele.fasta. Alleles that are not present in the fasta file will be called, and novel alleles will have allele ID starting from #100001
+   
+   #"-w 2 -g known_HaplotypeAllele.fasta"
+   Call alleles from input file known_HaplotypeAllele.fasta. Alleles that are not present in the fasta file will be called, and novel alleles will have allele ID continue from existing allele ID.
+   ```
+
+   The script add_allele.py can be used to add novel alleles from a new HaplotypeAllele.fasta to an existing HaplotypeAllele.fasta file. The allele IDs in the old file will be preserved.  Alleles only present in the new file will be added  in the output merged File, with ID of the novel allele continuing from existing allele ID.  After you have the merged file, you will need to recall genotypes with "-g mergedFile.fasta -w 0" to make sure using the right allele ID (You can use " -i 1" option  when recall on same sample data files. It will skip the most time consuming step 1 of the script).
+
+   ```
+   add_allele.py -n newFilePath -o oldFilePath -m mergedFilePath
+   ```
+
+   
 
 3. **<u>Output files</u>**
 
@@ -89,7 +109,7 @@ git clone https://bitbucket.org/cornell_bioinformatics/amplicon.git
   * -p	Ploidy, default 2
   * -r	Maximum read count ratio between the two alleles in each sample, default 20
   * -g         Set tag fasta file, so known allele ID will be used. 
-  * -w       Novel tag mode. 0: no novel alleles; 1 : novel allele ID start from 1000000;  2: novel allelele ID continue from existing allele ID. If "-g" not set, novel allele ID start from 1. 
+  * -w       Novel tag mode. 0: no novel alleles; 1 : novel allele ID start from 100001;  2: novel allelele ID continue from existing allele ID. If "-g" not set, novel allele ID start from 1. 
   * -z	Mismatch rate between pcr primer and reads, default 0.1
   * -u       Set to 1 to restart from crashed point in step 1. 
   * -v        Maximum reads to process per sample.  Default -1 to use all reads in the file.
