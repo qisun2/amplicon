@@ -205,3 +205,4 @@ Lep-MAP3 requires a vcf file as input. This script converts the hap_genotype fro
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
 
 ## Acknowledgments
+The development of the software is supported by Vitisgen2 and Vitisgen3. which are funded by USDA NIFA's Specialty Crop Research Initiative.  
