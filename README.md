@@ -57,6 +57,9 @@ git clone https://bitbucket.org/cornell_bioinformatics/amplicon.git
    ```
    amplicon.py -v 20m -j 40 -s sampleFile -k keyFile -o outputDir  -c 2 -n 20 -a 0.01 -m 50 -l 30 -d 0 -z 0.1 -r 10  --mode 3 --ori 2
    ```
+
+   
+
    Using "-g" and "-w" parameters to control allele discovery and allele calling mode
 
    ```
@@ -83,20 +86,20 @@ git clone https://bitbucket.org/cornell_bioinformatics/amplicon.git
 
 3. **<u>Output files</u>**
 
-     * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
+   * hap_genotype: A matrix with all genotypes. Each row is a marker, each column is a sample.
 
-     * hap_genotype_matrix: A file transposed from hap_genotype file, and without read count per allele information. 
+   * hap_genotype_matrix: A file transposed from hap_genotype file, and without read count per allele information. 
 
-     * HaplotypeAllele.fasta: A fasta file with haplotype sequence per allele.
+   * HaplotypeAllele.fasta: A fasta file with haplotype sequence per allele.
 
-       
+     
 
 4. **<u>Parameters for amplicon.py</u>**
 
   * -h	show this help message and exit
   * -k         key file
   * -s         sample file
-  * -i	Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes
+  * -i	Skip steps. e.g. "-i 12" to skip steps 1 and 2. the steps are: 1. split reads by primers; 2. identify haplotypes across population, and optionally run PCR error correction if set "-e 1"; 3 call genotypes. Step 1 is the most time consuming step.  You can adjust most of the following parameters and rerun the script by skipping step 1. 
   * -j	Number of simultaneous jobs. Default:8
   * -t	Number of threads per job. Default:1
   * -c	Minimum number of samples per haplotypes. Default:10
@@ -104,8 +107,7 @@ git clone https://bitbucket.org/cornell_bioinformatics/amplicon.git
   * -m	Maximum number of haplotypes per marker in the population. Default:1000
   * -a	Minimum minor allele frequency Default:0.01
   * -l	Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50
-  * -d	Whether to merge the duplicate samples. 1: Merge; 0: Do not merge and the duplicated sample will be named <sampleName>__<index starting from 1>. Default:1
-  * -e	Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction
+  * -d	Whether to merge the duplicate samples (identical names in column 1 of the sample file). 1: Merge; 0: Do not merge and the duplicated sample will be named <sampleName>__<index starting from 1>. Default:1
   * -p	Ploidy, default 2
   * -r	Maximum read count ratio between the two alleles in each sample, default 20
   * -g         Set tag fasta file, so known allele ID will be used. 
@@ -129,6 +131,7 @@ The name file is a tab delimited text file with two columns (no header line): ol
 
 
 ### 3. Slice & Merge the hap_genotype file
+
 ###### slice.py script
 
 You can slice by either a list of plates or a list of samples. This code will slice out samples from the genotyping matrix. 
@@ -188,7 +191,7 @@ Lep-MAP3 requires a vcf file as input. This script converts the hap_genotype fro
     to_lep_map.pl -g hap_genotype -f minorAlleleFrequency -b blankSample -m maternalSample -p paternalSample -l marker2pos -n familyName  
     ```
 
-  *  -b, -m, -p, -l are optional. "-b" "-m" and "-p" are integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1. "-l" is to specify the physical positions of the markers. It should be a tab-delimited table with 3 columns: markerName, chr, pos. 
+  * -b, -m, -p, -l are optional. "-b" "-m" and "-p" are integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1. "-l" is to specify the physical positions of the markers. It should be a tab-delimited table with 3 columns: markerName, chr, pos. 
 
 
 

@@ -86,11 +86,11 @@ def main():
     parser.add_argument('-a','--maf',type=float,required=False,default=0.01,help='Minimum minor allele frequency Default:0.01')
     parser.add_argument('-l','--minHaplotypeLength',type=int,required=False,default=50,help='Minimum haplotype length (after removing the primers. It must be an integer 1 or larger.) Default:50')
     parser.add_argument('-d','--mergeDuplicate',type=int,required=False,default=0,help='Whether to merge samples with same name. If two samples with same name and same plate_well, they will always be merged. 1: merge; 0: not merge and the duplicated sample will be named <sampleName>__<index starting from 1> . Default:0')
-    parser.add_argument('-e','--PCRErrorCorr',type=int,required=False,default=0,help='Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction')
+    #parser.add_argument('-e','--PCRErrorCorr',type=int,required=False,default=0,help='Correct PCR errors based on allele frequency (only applicable for biparental families). 0: No correction; 1: Correct error in bi-parental population based on allele read count distribution in the population. Default:0, no correction')
     parser.add_argument('-p','--ploidy',type=int,required=False,default=2,help='Ploidy, default 2')
     parser.add_argument('-r','--maxAlleleReadCountRatio',type=int,required=False,default=20,help='Maximum read count ratio between the two alleles in each sample, default 20')
-    parser.add_argument('-x','--slurmcluster',type=str,required=False,default="",help='Slurm cluster name. Slurm is configured to run on Cornell BioHPC. e.g. "-x cbsumm10"')
-    parser.add_argument('-y','--slurmBatchSize',type=int,required=False,default=10,help='Slurm job size. Number of samples per slurm job. default 10')
+    parser.add_argument('-x','--slurmcluster',type=str,required=False,default="",help='(Slurm not supported) Slurm cluster name. Slurm is configured to run on Cornell BioHPC. e.g. "-x cbsumm10"')
+    parser.add_argument('-y','--slurmBatchSize',type=int,required=False,default=10,help='(Slurm not supported) Slurm job size. Number of samples per slurm job. default 10')
     parser.add_argument('-z','--primerErrorRate',type=float,required=False,default=0.1,help='Mismatch rate between pcr primer and reads, default 0.1')
     parser.add_argument('-g','--tagFasta',type=str,required=False,help='tag fasta file, sequence tag name should be >markerNam#alleleID, e.g. >rh_chr9_9574105#31')
     parser.add_argument('-w','--novelTag',type=int,required=False,default=0, help='call novel alleles not defined in tagFasta. must be combined with -g. 0: no novel alleles; 1 : novel allele marked as n#; 2: novel allelele with ID continued from existing allele series.')
@@ -196,8 +196,8 @@ def main():
         os.mkdir(tagBySampleDir)
     if (not os.path.exists(markerDir)):
         os.mkdir(markerDir)
-    if ((args.PCRErrorCorr ==1) and (not os.path.exists(modDir))):
-        os.mkdir(modDir)
+    #if ((args.PCRErrorCorr ==1) and (not os.path.exists(modDir))):
+    #    os.mkdir(modDir)
 
 
     logging.basicConfig(filename=args.output + '/run.log',level=logging.DEBUG)
@@ -441,8 +441,8 @@ def main():
     if ("2" not in args.skip):
         logging.info("Step 2: getTagList")
         getTagList()
-        if (args.PCRErrorCorr == 1):
-            correctPCRError()
+        #if (args.PCRErrorCorr == 1):
+        #    correctPCRError()
 
     # callHapGenotypes
     if ("3" not in args.skip):
@@ -771,26 +771,26 @@ def callHapGenotypes():
     GTMatrix = {}
     for marker in markerList:
         GTMatrix[marker] = {}
-        if (args.PCRErrorCorr == 1):
-            #no use error correction method 1 (-e 1)
-            if (os.path.isfile(f"{modDir}/{marker}.mod")):
-                with open(f"{modDir}/{marker}.mod", 'r') as ms:
-                    for line in ms:
-                        [oriTagId, seqStr, xx, yy, informaticeSites, modTagId]  = line.split()
-                        if marker not in seqTagToId:
-                            seqTagToId[marker] = {}
-                        seqTagToId[marker][seqStr] = int(modTagId)
-                    ms.close()
-        else:
-            #use firstpass (-e 0)
-            if (os.path.isfile(f"{markerDir}/{marker}.firstpass")):
-                with open(f"{markerDir}/{marker}.firstpass", 'r') as ms:
-                    for line in ms:
-                        [tagId, seqStr, sampleNumber, copyNumber]  = line.split()
-                        if marker not in seqTagToId:
-                            seqTagToId[marker] = {}
-                        seqTagToId[marker][seqStr] = int(tagId)
-                    ms.close()
+        # if (args.PCRErrorCorr == 1):
+            # #no use error correction method 1 (-e 1)
+            # if (os.path.isfile(f"{modDir}/{marker}.mod")):
+                # with open(f"{modDir}/{marker}.mod", 'r') as ms:
+                    # for line in ms:
+                        # [oriTagId, seqStr, xx, yy, informaticeSites, modTagId]  = line.split()
+                        # if marker not in seqTagToId:
+                            # seqTagToId[marker] = {}
+                        # seqTagToId[marker][seqStr] = int(modTagId)
+                    # ms.close()
+        # else:
+            # #use firstpass (-e 0)
+        if (os.path.isfile(f"{markerDir}/{marker}.firstpass")):
+            with open(f"{markerDir}/{marker}.firstpass", 'r') as ms:
+                for line in ms:
+                    [tagId, seqStr, sampleNumber, copyNumber]  = line.split()
+                    if marker not in seqTagToId:
+                        seqTagToId[marker] = {}
+                    seqTagToId[marker][seqStr] = int(tagId)
+                ms.close()
 
     #get genotypes matrix
     for sampl in sampleList:
