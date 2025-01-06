@@ -26,8 +26,8 @@ def main():
         print(f"Error: nameFile file {args.nameFile} does not exist!")
         sys.exit()
 
-    df = pd.read_csv(args.input, delimiter='\t', header=0)
-    column_mapping = pd.read_csv(args.nameFile, delimiter='\t', header=None, names=['old_name', 'new_name'])
+    df = pd.read_csv(args.input, delimiter='\t', dtype=str, header=0)
+    column_mapping = pd.read_csv(args.nameFile, delimiter='\t', dtype=str, header=None, names=['old_name', 'new_name'])
     
     # Create a dictionary from the second table to map old names to new names
     column_rename_dict = dict(zip(column_mapping['old_name'], column_mapping['new_name']))
