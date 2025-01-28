@@ -144,6 +144,7 @@ if ($opts{"l"})
 	{
 		chomp;
 		my ($marker, $chr, $pos) = split "\t";
+		$pos=~s/\s//g;
 		$marker2chrpos{$marker} = "$chr\t$pos";
 	}
 	close IN;
