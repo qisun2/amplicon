@@ -47,18 +47,27 @@ def main():
     all_indices = range(2, len(df.columns))
     exclude_set = set(maternal_list + paternal_list)
     progeny_list = [x for x in all_indices if x not in exclude_set]
-    progeny_names= df.columns[progeny_list].tolist()
+    progeny_names_ori= df.columns[progeny_list].tolist()
     
-    WHLOG = open (args.output + ".log", "wt")
+    progeny_names=[]
+    for pname in progeny_names_ori:
+        pname, plate = pname.split("__")
+        if len(pname)>20:
+            pname=pname[:20]
+        progeny_names.append(pname)
+        
+    WHLOG = open (args.output + ".run.log", "wt")
     WHINFO = open (args.output + ".marker_info", "wt")
     
-    WHLOG.write (f"Mathernal parents: {maternal_names}\n")
-    WHLOG.write (f"Paternal parents: {paternal_names}\n")
-    WHLOG.write (f"Progenies {len(progeny_list)}: {progeny_names}\n")
+    WHLOG.write (f"Mathernal parents ({len(maternal_names)}):\n\t{maternal_names}\n")
+    WHLOG.write (f"Paternal parents ({len (paternal_names)}):\n\t{paternal_names}\n")
+    WHLOG.write (f"Progenies ({len(progeny_list)}):\n\t{progeny_names}\n")
     
-    WHTEST = open (args.output + "testing.log", "wt")
-    
+    coding_stat = {}
+    marker_stat = {"PASSED":0}
     output_gt_list = []
+    WHINFO.write(f"Marker\tOriCode\tMaternalAllele\tPaternalAllele\tMaternalGTs\tPaternalGTs\tPASS\tFilterCode\tCodeInLoc\t#MissingOneAllele\t#MissingTwoAllele\t#MissingRate\t" + "\t".join(progeny_names) + "\n")
+    WHLOG.write (f"\n\nMarkers filtered due to high missing rate (cutoff: {args.missing})\nMarker\tCode\t#Missing One allele\tMissing Two alleles\tOverall Missing rate\n")
     for index, row in df.iterrows():
         maternal_gts = [row[i] for i in df.columns[maternal_list]]
         paternal_gts = [row[i] for i in df.columns[paternal_list]]
@@ -78,7 +87,7 @@ def main():
         code = "unknown"
         
         if (len(maternal_alleles) == 0) or (len(paternal_alleles) == 0):
-            code = "missing"
+            code = "Parental_gt_unk"
         elif (len(maternal_alleles) == 1) and (len(paternal_alleles) == 1):
             code= "aabb"
         elif (len(maternal_alleles) == 2) and (len(paternal_alleles) == 2):
@@ -113,68 +122,78 @@ def main():
                     paternal_alleles[1] =t
                 code = "nnxnp"
             else:
-                code = "ccxab"
-
-        WHINFO.write(f"{markerName}\t{code}\t{'/'.join(maternal_alleles)}\t{'/'.join(paternal_alleles)}\t{'--'.join(maternal_gts)}\t{'--'.join(paternal_gts)}\n")
+                code = "ccxab"        
+        
+        if code in coding_stat:
+            coding_stat[code] += 1
+        else:
+            coding_stat[code] =1
+        
+        ExtraMarkerInfoStr = ""
+        
         if code in ("abxcd", "hkxhk", "efxeg", "lmxll", "nnxnp", "abxcc", "ccxab"):
-            
+            code_in_locfile = code 
             if code == "abxcc":
-                if len(markerName)>18:
-                    markerName = markerName[:20]
-                m1 = markerName + "-1"
-                m2 = markerName + "-2"
-                
-                gtline = f"{m1.ljust(25, ' ')}  <lmxll>\n "
-                gtline_extra = f"{m2.ljust(25, ' ')}  <lmxll>\n "           
+                code_in_locfile = "lmxll"
             elif code=="ccxab":
-                if len(markerName)>18:
-                    markerName = markerName[:20]
-                m1 = markerName + "-1"
-                m2 = markerName + "-2"
-                gtline = f"{m1.ljust(25, ' ')}  <nnxnp>\n "
-                gtline_extra = f"{m2.ljust(25, ' ')}  <nnxnp>\n "               
-            else:
-                gtline = f"{markerName.ljust(25, ' ')}  <{code}>\n "
+                code_in_locfile = "nnxnp"          
+
+            gtline = f"{markerName.ljust(25, ' ')}  <{code_in_locfile}>\n "
                 
-            evline = f"{code}\t{markerName}\t{maternal_alleles}\t{paternal_alleles}"            
-            missingCount = 0
+            evline = ""            
+            missingOneAlleleCount = 0
+            missingTwoAlleleCount = 0
             total = len (progeny_gts)
             
 
             for progeny_gt in progeny_gts:            
                 gt, evidence = convert_gt(progeny_gt, maternal_alleles, paternal_alleles, code)
-                if "-" in gt:
-                    missingCount = missingCount + 1
-                    
-                if code in ("ccxab", "abxcc"):
-                    gt1, gt2 = gt.split("&&")
-                    gtline = gtline + " " + gt1
-                    gtline_extra = gtline_extra + " " + gt2                 
-                else:
-                    gtline = gtline + " " + gt 
+                if gt == "--":
+                    missingTwoAlleleCount +=1
+                elif "-" in gt:
+                    missingOneAlleleCount += 1
+               
+                gtline = gtline + " " + gt                 
+                evline = evline + evidence + "\t"
                 
-                evline = evline + "\t" + evidence
-            if (missingCount/total)< args.missing:
+            missingRate = (missingOneAlleleCount + missingTwoAlleleCount)/total
+            ExtraMarkerInfoStr += f"{missingOneAlleleCount}\t{missingTwoAlleleCount}\t{missingRate}\t{evline}"
+            
+            if missingRate < args.missing:
+                extra_info = ""
                 if code in ("ccxab", "abxcc"):
-                    output_gt_list.append(gtline + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles} {code}-1" )
-                    output_gt_list.append(gtline_extra + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles} {code}-2" )
-                else:
-                    output_gt_list.append(gtline + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles}" )
-                WHTEST.write(f"{evline}\n")
+                    extra_info = f"  Note: SEG type converted from {code}"
+                    
+                output_gt_list.append(gtline + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles} {extra_info}" )
+                ExtraMarkerInfoStr=f"Passed\t\t{code_in_locfile}\t" + ExtraMarkerInfoStr
+                  
+                marker_stat["PASSED"] += 1
             else:
-                WHLOG.write(f"missing\t{markerName}\t{missingCount/total}\n")
-    WHLOG.close()
-    WHTEST.close()
+                ExtraMarkerInfoStr=f"Removed\tMissingRate\t{code_in_locfile}\t" + ExtraMarkerInfoStr
+                WHLOG.write(f"{markerName}\t{code}\t{missingOneAlleleCount}\t{missingTwoAlleleCount}\t{missingRate}\n")
+        else:
+            filterReason = "CodeNotUsed"
+            if code == "Parental_gt_unk":
+                filterReason = "NoParentalAlleles"            
+            ExtraMarkerInfoStr=f"Removed\t{filterReason}\t{code_in_locfile}\t"
+        WHINFO.write(f"{markerName}\t{code}\t{', '.join(maternal_alleles)}\t{', '.join(paternal_alleles)}\t{'--'.join(maternal_gts)}\t{'--'.join(paternal_gts)}\t{ExtraMarkerInfoStr}\n")
+    
+    WHLOG.write("\n\nCode stats:\n")
+    for code in coding_stat:
+        WHLOG.write(f"{code}\t{coding_stat[code]}\n")
 
+
+    WHLOG.write("\n\nMarker stats:\n")
+    WHLOG.write(f"Marker PASSED\t{marker_stat['PASSED']}\n")    
+
+        
+    WHLOG.close()
+    WHINFO.close()
+
+    
     #write to output file
     gt_output = "\n".join(output_gt_list)
-    
-    indiv_names = ""
-    for pname in progeny_names:
-        pname, plate = pname.split("__")
-        if len(pname)>20:
-            pname=pname[:20]
-        indiv_names = indiv_names + pname + "\n"
+    indiv_names = "\n".join(progeny_names)
     
     
     text_block = f"""; converted from amplicon genotyping matrix
@@ -188,10 +207,11 @@ nind = {len(progeny_list)}
 
 individual names:
 {indiv_names}
+
 """
 
 
-    WHOUT = open (args.output, "wt")
+    WHOUT = open (args.output + ".loc", "wt")
     WHOUT.write(text_block)
     WHOUT.close()
     
@@ -251,43 +271,25 @@ def convert_gt (progeny, mother, father, code):
             gt = "nn"
         return [f"{gt}", f"{alleles}={gt}"]
     elif code == "abxcc":
-        gt_a = "--"
-        gt_b = "--"
-        
+        gt = "--"        
         if (mother[0] not in allele_list) and (mother[1] not in allele_list):
-            return ["--&&--", f"{alleles}=--"]
+            return ["--", f"{alleles}=--"]
             
         if mother[0] in allele_list:
-            gt_a = "lm"
+            gt = "lm"
         else:
-            gt_a = "ll"
-            
-        
-        if mother[1] in allele_list:
-            gt_b = "lm"
-        else:
-            gt_b = "ll"
-            
-        return [f"{gt_a}&&{gt_b}", f"{alleles}={gt_a}&&{gt_b}"]
+            gt = "ll"
+        return [gt, f"{alleles}={gt}"]
     elif code == "ccxab":
-        gt_a = "--"
-        gt_b = "--"
-        
+        gt = "--"       
         if (father[0] not in allele_list) and (father[1] not in allele_list):
-            return ["--&&--", f"{alleles}=--"]
+            return ["--", f"{alleles}=--"]
             
         if father[0] in allele_list:
-            gt_a = "np"
+            gt ="np"
         else:
-            gt_a = "nn"
-            
-        
-        if father[1] in allele_list:
-            gt_b = "np"
-        else:
-            gt_b = "nn"
-            
-        return [f"{gt_a}&&{gt_b}", f"{alleles}={gt_a}&&{gt_b}"]
+            gt= "nn"
+        return [gt, f"{alleles}={gt}"]
     else:
         return ["--", alleles]
             
