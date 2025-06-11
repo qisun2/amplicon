@@ -4,6 +4,8 @@ import sys
 import argparse
 import os
 import re
+
+
 def main():
     if sys.version_info[0] < 3:
         raise Exception("This code requires Python 3.")
@@ -14,7 +16,9 @@ def main():
     parser.add_argument('-n', '--familyname', required=False, type=str, default='mypopulation', help='Name of the family')
     parser.add_argument('-m','--maternal',type=str,required=True,help='Maternal parents.')
     parser.add_argument('-p','--paternal',type=str,required=True,help='Paternal parents.')
+    parser.add_argument('-a','--abxcc',type=str, default="1", required=False,help='Options to code abcc markers. 1:abbb; 2:abcd; 3:abbb and aaab')
     parser.add_argument('-x','--missing',type=float,required=False, default=0.5, help='Missing rate.')
+    global args
     args=parser.parse_args()
 
         
@@ -132,14 +136,30 @@ def main():
         ExtraMarkerInfoStr = ""
         
         if code in ("abxcd", "hkxhk", "efxeg", "lmxll", "nnxnp", "abxcc", "ccxab"):
-            code_in_locfile = code 
-            if code == "abxcc":
-                code_in_locfile = "lmxll"
-            elif code=="ccxab":
-                code_in_locfile = "nnxnp"          
-
-            gtline = f"{markerName.ljust(25, ' ')}  <{code_in_locfile}>\n "
-                
+            code_in_locfile = code
+            
+            gtline_extra = ""
+            
+            if code in ("abxcc", "ccxab"):
+                if (args.abxcc=="1") or (args.abxcc=="3"):
+                    if code == "abxcc":
+                        code_in_locfile = "lmxll"
+                    elif code=="ccxab":
+                        code_in_locfile = "nnxnp"
+                elif args.abxcc=="2":
+                    code_in_locfile = "abxcd"
+                    
+                if args.abxcc == "3" and code in ("abxcc", "ccxab"):
+                    markerName = markerName[:18]
+                    m1 = markerName + "-a"
+                    m2 = markerName + "-b"
+                    gtline = f"{m1.ljust(25, ' ')}  <{code_in_locfile}>\n "
+                    gtline_extra = f"{m2.ljust(25, ' ')}  <{code_in_locfile}>\n "
+                else:
+                    gtline = f"{markerName.ljust(25, ' ')}  <{code_in_locfile}>\n "
+            else:
+                gtline = f"{markerName.ljust(25, ' ')}  <{code_in_locfile}>\n "
+               
             evline = ""            
             missingOneAlleleCount = 0
             missingTwoAlleleCount = 0
@@ -153,24 +173,38 @@ def main():
                 elif "-" in gt:
                     missingOneAlleleCount += 1
                
-                gtline = gtline + " " + gt                 
+                if (code in ("abxcc", "ccxab")) and (args.abxcc == "3"):  
+                    gt1, gt2 = gt.split("&&")
+                    gtline = gtline + " " + gt1
+                    gtline_extra = gtline_extra + " " + gt2
+                else:
+                    gtline = gtline + " " + gt
+                    
                 evline = evline + evidence + "\t"
                 
             missingRate = (missingOneAlleleCount + missingTwoAlleleCount)/total
             ExtraMarkerInfoStr += f"{missingOneAlleleCount}\t{missingTwoAlleleCount}\t{missingRate}\t{evline}"
             
-            if missingRate < args.missing:
-                extra_info = ""
+            if missingRate < args.missing:                
                 if code in ("ccxab", "abxcc"):
                     extra_info = f"  Note: SEG type converted from {code}"
-                    
-                output_gt_list.append(gtline + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles} {extra_info}" )
+                    output_gt_list.append(gtline + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles} {extra_info}" )
+                    if args.abxcc == "3":
+                        output_gt_list.append(gtline_extra + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles} {extra_info}" )
+                else:
+                    output_gt_list.append(gtline + f" ; maternal alleles: {maternal_alleles} paternal alleles: {paternal_alleles}" )
                 ExtraMarkerInfoStr=f"Passed\t\t{code_in_locfile}\t" + ExtraMarkerInfoStr
                   
                 marker_stat["PASSED"] += 1
             else:
                 ExtraMarkerInfoStr=f"Removed\tMissingRate\t{code_in_locfile}\t" + ExtraMarkerInfoStr
                 WHLOG.write(f"{markerName}\t{code}\t{missingOneAlleleCount}\t{missingTwoAlleleCount}\t{missingRate}\n")
+                
+                ccc = "NOT PASSED missing rate filter " + code
+                if ccc in marker_stat:
+                    marker_stat["NOT PASSED " + code] += 1
+                else:
+                    marker_stat["NOT PASSED " + code] = 1
         else:
             filterReason = "CodeNotUsed"
             if code == "Parental_gt_unk":
@@ -184,7 +218,8 @@ def main():
 
 
     WHLOG.write("\n\nMarker stats:\n")
-    WHLOG.write(f"Marker PASSED\t{marker_stat['PASSED']}\n")    
+    for s in marker_stat: 
+        WHLOG.write(f"{s}\t{marker_stat[s]}\n")    
 
         
     WHLOG.close()
@@ -271,25 +306,87 @@ def convert_gt (progeny, mother, father, code):
             gt = "nn"
         return [f"{gt}", f"{alleles}={gt}"]
     elif code == "abxcc":
-        gt = "--"        
-        if (mother[0] not in allele_list) and (mother[1] not in allele_list):
-            return ["--", f"{alleles}=--"]
+        if args.abxcc == "1":
+            gt = "--"        
+            if (mother[0] not in allele_list) and (mother[1] not in allele_list):
+                return ["--", f"{alleles}=--"]
+                
+            if mother[0] in allele_list:
+                gt = "lm"
+            else:
+                gt = "ll"
+            return [gt, f"{alleles}={gt}"]
+        elif args.abxcc == "2":
+            gt = "--"        
+            if (mother[0] not in allele_list) and (mother[1] not in allele_list):
+                return ["--", f"{alleles}=--"]
+                
+            if (mother[0] in allele_list) and (mother[1] not in allele_list):
+                gt = "ac"
+            elif (mother[1] in allele_list) and (mother[0] not in allele_list):
+                gt = "bc"
+            else:
+                gt = "ab"
+            return [gt, f"{alleles}={gt}"]
+        elif args.abxcc == "3":
+            gt1="--"
+            gt2="--"        
+            if (mother[0] not in allele_list) and (mother[1] not in allele_list):
+                return ["--&&--", f"{alleles}=--"]
             
-        if mother[0] in allele_list:
-            gt = "lm"
-        else:
-            gt = "ll"
-        return [gt, f"{alleles}={gt}"]
+
+            if (mother[0] in allele_list):
+                gt1 = "lm"
+            else:
+                gt1 = "ll"
+                
+            if (mother[1] in allele_list):
+                gt2 = "lm"
+            else:
+                gt2 = "ll"
+                
+            return [f"{gt1}&&{gt2}", f"{alleles}={gt1}&&{gt2}"]
     elif code == "ccxab":
-        gt = "--"       
-        if (father[0] not in allele_list) and (father[1] not in allele_list):
-            return ["--", f"{alleles}=--"]
+        if args.abxcc == "1":
+            gt = "--"        
+            if (father[0] not in allele_list) and (father[1] not in allele_list):
+                return ["--", f"{alleles}=--"]
+                
+            if father[0] in allele_list:
+                gt = "lm"
+            else:
+                gt = "ll"
+            return [gt, f"{alleles}={gt}"]
+        elif args.abxcc == "2":
+            gt = "--"        
+            if (father[0] not in allele_list) and (father[1] not in allele_list):
+                return ["--", f"{alleles}=--"]
+                
+            if (father[0] in allele_list) and (father[1] not in allele_list):
+                gt = "ca"
+            elif (father[1] in allele_list) and (father[0] not in allele_list):
+                gt = "cb"
+            else:
+                gt = "ab"
+            return [gt, f"{alleles}={gt}"]
+        elif args.abxcc == "3":
+            gt1="--"
+            gt2="--"        
+            if (father[0] not in allele_list) and (father[1] not in allele_list):
+                return ["--&&--", f"{alleles}=--"]
             
-        if father[0] in allele_list:
-            gt ="np"
-        else:
-            gt= "nn"
-        return [gt, f"{alleles}={gt}"]
+
+            if (father[0] in allele_list):
+                gt1 = "lm"
+            else:
+                gt1 = "ll"
+                
+            if (father[1] in allele_list):
+                gt2 = "lm"
+            else:
+                gt2 = "ll"
+                
+            return [f"{gt1}&&{gt2}", f"{alleles}={gt1}&&{gt2}"]
     else:
         return ["--", alleles]
             
