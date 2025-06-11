@@ -232,7 +232,12 @@ def main():
     
     
     text_block = f"""; converted from amplicon genotyping matrix
-    
+; maternal samples {maternal_names}:
+; paternal samples {paternal_names}:
+; missing data cutoff {args.missing}
+; conversion mode for abxcc and ccxab markers: {args.abxcc}
+; mode 1: a allele only; 2: convert to abxcd with no d; 3. split into two markers -a and -b 
+
 name = {args.familyname}
 popt = CP
 nloc = {len(output_gt_list)}
