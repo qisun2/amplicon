@@ -202,9 +202,9 @@ def main():
                 
                 ccc = "NOT PASSED missing rate filter " + code
                 if ccc in marker_stat:
-                    marker_stat["NOT PASSED " + code] += 1
+                    marker_stat[ccc] += 1
                 else:
-                    marker_stat["NOT PASSED " + code] = 1
+                    marker_stat[ccc] = 1
         else:
             filterReason = "CodeNotUsed"
             if code == "Parental_gt_unk":
