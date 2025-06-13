@@ -147,7 +147,6 @@ The inputDirectory should contain at least one file named hap_genotype, and opti
 In the output hap_genotype file, the samples will be ordered based on the provided sample file. 
 
 
-
 ###### merge.py script
 
 To merge multiple hap_genotype files, run the command: 
@@ -191,7 +190,31 @@ Lep-MAP3 requires a vcf file as input. This script converts the hap_genotype fro
 
   * -b, -m, -p, -l are optional. "-b" "-m" and "-p" are integer index of the blank, maternal and paternal samples in your sample list. If multiple samples, separate the index with comma. The index should be 1-based, so that the first sample is 1. "-l" is to specify the physical positions of the markers. It should be a tab-delimited table with 3 columns: markerName, chr, pos. 
 
+### 5. Convert to joinmap .loc file
 
+To convert hap_genotype file to JoinMap .loc file, run the command: 
+
+```
+to_joinmap.py -i input_hap_genotype -o GE2336_1 -a 1 -n GE2
+336 -m 1,2 -p 3,4,5,6
+-i: input file name, must be a hap_genotype file
+-o: ouput file prefix. There will be 4 output files:
+    .loc: input file for joinmap
+    .run.log: log file, with stats of the output, including markers in each segregation pattern.
+    .marker_info: a detailed table showing how each gentype is converted to a jo
+inmap code
+-a: how to deal with abxcc or ccxab markers. The values are 1,2,3. default to 1.
+
+    1 only "a" allele is used, convert to lmxll or nnxnp
+    2 convert to abxcd. d allele is not used.
+    3 one marker splitted into two markers. one for a allele, one for b-allele
+-n: name of the family
+-m: index of maternal parents in the hap_genotype file. The first sample is inde
+x 1
+-p: index of paternal parents in the hap_genotype file. The first sample is inde
+x 1
+
+```
 
 ## Authors
 
